@@ -1,0 +1,8 @@
+export { DashboardPage } from './dashboard-page'
+export { UsersPage } from './users-page'
+export { KycPage } from './kyc-page'
+export { TransactionsPage } from './transactions-page'
+export { FraudPage } from './fraud-page'
+export { FinancePage } from './finance-page'
+export { AccessPage } from './access-page'
+export { AuditPage } from './audit-page'
