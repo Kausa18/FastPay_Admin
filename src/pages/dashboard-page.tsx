@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type CSSProperties } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Activity,
   AlertTriangle,
@@ -14,30 +15,60 @@ import { api, money, shortDate, titleCase } from '../api'
 import { EmptyState, LoadingState, PageHeader, StatusPill } from '../components'
 import { useAuth } from '../auth-context'
 import type { FraudFlag, KycSubmission, User } from '../types'
-import { MetricCard, PlatformOverview, roleCan } from './shared'
+import { MetricCard, NetworkStat, PlatformOverview, roleCan } from './shared'
+
+const networkLabels: Record<string, string> = {
+  mtn: 'MTN Money',
+  airtel: 'Airtel Money',
+  zamtel: 'Zamtel Kwacha',
+}
 
 export function DashboardPage() {
   const { admin } = useAuth()
+  const navigate = useNavigate()
   const [overview, setOverview] = useState<PlatformOverview | null>(null)
+  const [networks, setNetworks] = useState<NetworkStat[]>([])
   const [users, setUsers] = useState<User[]>([])
   const [kyc, setKyc] = useState<KycSubmission[]>([])
   const [fraud, setFraud] = useState<FraudFlag[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     const requests: Promise<void>[] = []
-    if (roleCan(admin.role, ['finance', 'operations']))
+    if (roleCan(admin.role, ['finance', 'operations'])) {
       requests.push(api<PlatformOverview>('/analytics/platform/overview').then(setOverview))
+      requests.push(
+        api<{ networks: NetworkStat[] }>('/analytics/platform/networks').then((data) =>
+          setNetworks(data.networks),
+        ),
+      )
+    }
     if (roleCan(admin.role, ['support', 'compliance', 'operations']))
       requests.push(api<User[]>('/admin/users?limit=6').then(setUsers))
     if (roleCan(admin.role, ['compliance']))
       requests.push(api<KycSubmission[]>('/kyc/pending').then(setKyc))
     if (roleCan(admin.role, ['compliance', 'operations']))
       requests.push(api<FraudFlag[]>('/admin/fraud-flags?status=open&limit=6').then(setFraud))
-    Promise.allSettled(requests).finally(() => setLoading(false))
+    await Promise.allSettled(requests)
   }, [admin.role])
 
+  useEffect(() => {
+    load().finally(() => setLoading(false))
+  }, [load])
+
+  const refresh = async () => {
+    setRefreshing(true)
+    await load()
+    setRefreshing(false)
+  }
+
   if (loading) return <LoadingState />
+  const totalNetworkTx = networks.reduce((sum, n) => sum + n.transaction_count, 0)
+  const totalNetworkCompleted = networks.reduce((sum, n) => sum + n.completed_count, 0)
+  const overallSuccessRate = totalNetworkTx
+    ? Math.round((totalNetworkCompleted / totalNetworkTx) * 100)
+    : null
   const completedRate = overview?.total_transactions
     ? Math.round((overview.completed_count / overview.total_transactions) * 100)
     : 0
@@ -48,8 +79,8 @@ export function DashboardPage() {
         title={`Good ${new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, ${(admin.fullName || 'admin').split(' ')[0]}.`}
         description="Here's what needs attention across FastPay right now."
         action={
-          <button className="button secondary" onClick={() => window.location.reload()}>
-            <RefreshCw size={17} /> Refresh data
+          <button className="button secondary" onClick={refresh} disabled={refreshing}>
+            <RefreshCw size={17} className={refreshing ? 'spin' : ''} /> Refresh data
           </button>
         }
       />
@@ -123,7 +154,12 @@ export function DashboardPage() {
           </div>
           <div className="attention-list">
             {roleCan(admin.role, ['compliance']) && (
-              <div className="attention-row">
+              <button
+                type="button"
+                className="attention-row"
+                onClick={() => navigate('/kyc')}
+                disabled={!kyc.length}
+              >
                 <span className="attention-icon blue">
                   <FileCheck2 />
                 </span>
@@ -136,10 +172,15 @@ export function DashboardPage() {
                   </p>
                 </div>
                 <b>{kyc.length}</b>
-              </div>
+              </button>
             )}
             {roleCan(admin.role, ['compliance', 'operations']) && (
-              <div className="attention-row">
+              <button
+                type="button"
+                className="attention-row"
+                onClick={() => navigate('/fraud')}
+                disabled={!fraud.length}
+              >
                 <span className="attention-icon orange">
                   <ShieldAlert />
                 </span>
@@ -152,10 +193,15 @@ export function DashboardPage() {
                   </p>
                 </div>
                 <b>{fraud.length}</b>
-              </div>
+              </button>
             )}
             {overview && (
-              <div className="attention-row">
+              <button
+                type="button"
+                className="attention-row"
+                onClick={() => navigate('/transactions?status=failed')}
+                disabled={!overview.failed_count}
+              >
                 <span className="attention-icon red">
                   <AlertTriangle />
                 </span>
@@ -164,7 +210,7 @@ export function DashboardPage() {
                   <p>Monitor provider failures and customer impact.</p>
                 </div>
                 <b>{overview.failed_count}</b>
-              </div>
+              </button>
             )}
             {!kyc.length && !fraud.length && !overview && <EmptyState />}
           </div>
@@ -172,36 +218,45 @@ export function DashboardPage() {
         <article className="panel health-panel">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Provider setup</p>
-              <h2>Network adapters</h2>
+              <p className="eyebrow">Provider performance</p>
+              <h2>Network breakdown</h2>
             </div>
           </div>
-          <div className="health-score">
-            <div className="score-ring demo">
-              <strong>Demo</strong>
-              <span>adapter mode</span>
-            </div>
-          </div>
-          <div className="provider-list">
-            <div>
-              <span className="provider-dot mtn" />
-              <b>MTN Money</b>
-              <StatusPill value="configured" />
-            </div>
-            <div>
-              <span className="provider-dot airtel" />
-              <b>Airtel Money</b>
-              <StatusPill value="configured" />
-            </div>
-            <div>
-              <span className="provider-dot zamtel" />
-              <b>Zamtel Kwacha</b>
-              <StatusPill value="configured" />
-            </div>
-          </div>
-          <p className="data-note">
-            Live availability will appear after provider health endpoints are connected.
-          </p>
+          {networks.length > 0 ? (
+            <>
+              <div className="health-score">
+                <div
+                  className="score-ring"
+                  style={{ '--fill': `${overallSuccessRate ?? 0}%` } as CSSProperties}
+                >
+                  <strong>{overallSuccessRate !== null ? `${overallSuccessRate}%` : '—'}</strong>
+                  <span>success rate</span>
+                </div>
+              </div>
+              <div className="provider-list">
+                {networks.map((net) => (
+                  <div key={net.network}>
+                    <span className={`provider-dot ${net.network}`} />
+                    <b>{networkLabels[net.network] || titleCase(net.network)}</b>
+                    {net.transaction_count ? (
+                      <span className="provider-rate">{net.success_rate}% success</span>
+                    ) : (
+                      <StatusPill value="no activity" />
+                    )}
+                  </div>
+                ))}
+              </div>
+              <p className="data-note">
+                Based on {totalNetworkTx} recorded transaction{totalNetworkTx === 1 ? '' : 's'}{' '}
+                across all providers.
+              </p>
+            </>
+          ) : (
+            <EmptyState
+              title="No transactions yet"
+              message="Provider performance will appear once payments start flowing."
+            />
+          )}
         </article>
       </section>
       {users.length > 0 && (

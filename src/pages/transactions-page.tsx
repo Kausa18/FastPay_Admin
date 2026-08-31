@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { ArrowDownRight, ArrowUpRight, ChevronRight } from 'lucide-react'
 import { api, money, shortDate, titleCase } from '../api'
 import {
@@ -14,7 +15,12 @@ import {
 import type { Transaction } from '../types'
 
 export function TransactionsPage() {
-  const [status, setStatus] = useState('')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [status, setStatusState] = useState(searchParams.get('status') || '')
+  const setStatus = (value: string) => {
+    setStatusState(value)
+    setSearchParams(value ? { status: value } : {})
+  }
   const [userId, setUserId] = useState('')
   const [selected, setSelected] = useState<Transaction | null>(null)
   const path = `/admin/transactions?limit=100${status ? `&status=${status}` : ''}${userId ? `&user_id=${encodeURIComponent(userId)}` : ''}`

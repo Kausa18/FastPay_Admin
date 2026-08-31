@@ -11,6 +11,15 @@ export type PlatformOverview = {
   last_24h_count: number
 }
 
+export type NetworkStat = {
+  network: string
+  transaction_count: number
+  completed_count: number
+  failed_count: number
+  total_volume_zmw: number
+  success_rate: number | null
+}
+
 export const roleCan = (role: AdminRole, roles: AdminRole[]) =>
   role === 'super_admin' || roles.includes(role)
 

@@ -718,9 +718,26 @@ textarea {
   gap: 13px;
   padding: 13px 0;
   border-top: 1px solid #edf0f6;
+  width: 100%;
+  background: transparent;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background-color 0.15s ease;
 }
 .attention-row:first-child {
   border-top: 0;
+}
+.attention-row:not(:disabled):hover {
+  background: #f5f8ff;
+}
+.attention-row:disabled {
+  cursor: default;
 }
 .attention-icon {
   width: 40px;
@@ -768,6 +785,7 @@ textarea {
   padding: 5px 0 15px;
 }
 .score-ring {
+  --fill: 0%;
   width: 112px;
   height: 112px;
   border-radius: 50%;
@@ -776,12 +794,7 @@ textarea {
   text-align: center;
   background:
     radial-gradient(circle at center, #fff 58%, transparent 59%),
-    conic-gradient(#00a7a5 99.9%, #e5e9f2 0);
-}
-.score-ring.demo {
-  background:
-    radial-gradient(circle at center, #fff 58%, transparent 59%),
-    conic-gradient(#0758f7 72%, #e5e9f2 0);
+    conic-gradient(#00a7a5 var(--fill), #e5e9f2 0);
 }
 .score-ring strong {
   font-size: 23px;
@@ -817,6 +830,15 @@ textarea {
 }
 .provider-dot.zamtel {
   background: #00c853;
+}
+.provider-rate {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.icon-button.spin,
+.button svg.spin {
+  animation: spin 0.8s linear infinite;
 }
 .data-note {
   color: #8a94a9;
