@@ -61,7 +61,12 @@ export function AuditPage() {
                   <StatusPill value="completed" />
                 </div>
                 <p>
-                  <b>{log.adminEmail}</b> acted on {titleCase(log.targetType)}{' '}
+                  <b>
+                    {log.actorType === 'user'
+                      ? log.adminEmail.replace(/^user:/, '')
+                      : log.adminEmail}
+                  </b>{' '}
+                  ({log.actorType}) acted on {titleCase(log.targetType)}{' '}
                   {log.targetId && <code>{log.targetId.slice(0, 12)}...</code>}
                 </p>
                 {log.details && <pre>{JSON.stringify(log.details, null, 2)}</pre>}

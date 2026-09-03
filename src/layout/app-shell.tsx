@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import {
   Activity,
@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react'
 import { AuthContext } from '../auth-context'
+import { api } from '../api'
 import type { AdminRole, AdminUser } from '../types'
 import {
   AccessPage,
@@ -61,6 +62,13 @@ export function AppShell({ admin, onLogout }: { admin: AdminUser; onLogout: () =
     ? allowedNav.filter((item) => item.label.toLowerCase().includes(quickSearch.toLowerCase()))
     : []
   const current = navigation.find((item) => item.path === location.pathname)?.label || 'Overview'
+
+  useEffect(() => {
+    void api('/admin/page-views', {
+      method: 'POST',
+      body: JSON.stringify({ path: location.pathname, pageName: current }),
+    }).catch(() => undefined)
+  }, [location.pathname, current])
 
   return (
     <AuthContext.Provider value={{ admin, logout: onLogout }}>

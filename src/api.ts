@@ -40,6 +40,63 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   return payload.data as T
 }
 
+export function subscribeToAdminEvents(
+  onRefresh: () => void,
+  onConnectionChange: (connected: boolean) => void,
+) {
+  const controller = new AbortController()
+
+  const connect = async () => {
+    while (!controller.signal.aborted) {
+      try {
+        const token = getToken()
+        const response = await fetch(`${API_BASE_URL}/admin/events`, {
+          headers: {
+            Accept: 'text/event-stream',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          signal: controller.signal,
+        })
+        if (!response.ok || !response.body) {
+          if (response.status === 401) {
+            clearToken()
+            window.dispatchEvent(new Event('admin-session-expired'))
+          }
+          throw new ApiError('Live updates are unavailable', response.status)
+        }
+
+        onConnectionChange(true)
+        const reader = response.body.getReader()
+        const decoder = new TextDecoder()
+        let buffer = ''
+        while (!controller.signal.aborted) {
+          const { value, done } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const messages = buffer.split('\n\n')
+          buffer = messages.pop() || ''
+          for (const message of messages) {
+            const event = message
+              .split('\n')
+              .find((line) => line.startsWith('event:'))
+              ?.slice(6)
+              .trim()
+            if (event === 'refresh') onRefresh()
+          }
+        }
+      } catch (error) {
+        if (controller.signal.aborted) break
+      } finally {
+        if (!controller.signal.aborted) onConnectionChange(false)
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 2_000))
+    }
+  }
+
+  void connect()
+  return () => controller.abort()
+}
+
 export const money = (value: number | string | undefined) =>
   new Intl.NumberFormat('en-ZM', { style: 'currency', currency: 'ZMW' }).format(Number(value || 0))
 

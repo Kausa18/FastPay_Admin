@@ -70,7 +70,7 @@ export function TransactionsPage() {
                     <td>
                       <div className="stack-cell mono">
                         <strong>{txn.id.slice(0, 8)}...</strong>
-                        <small>{txn.mnoReference || txn.idempotencyKey}</small>
+                        <small>{txn.reference || txn.mnoReference || txn.idempotencyKey}</small>
                       </div>
                     </td>
                     <td>
@@ -122,6 +122,10 @@ export function TransactionsPage() {
               <strong>{money(selected.feeZmw)}</strong>
             </div>
             <div>
+              <span>Net amount</span>
+              <strong>{money(selected.netAmountZmw)}</strong>
+            </div>
+            <div>
               <span>Sender ID</span>
               <code>{selected.senderId}</code>
             </div>
@@ -130,13 +134,55 @@ export function TransactionsPage() {
               <code>{selected.receiverId}</code>
             </div>
             <div>
+              <span>Sender account ID</span>
+              <code>{selected.senderAccountId || 'Not assigned'}</code>
+            </div>
+            <div>
+              <span>Receiver account ID</span>
+              <code>{selected.receiverAccountId || 'Not assigned'}</code>
+            </div>
+            <div>
               <span>Network</span>
               <strong>{titleCase(selected.network)}</strong>
+            </div>
+            <div>
+              <span>FastPay reference</span>
+              <strong>{selected.reference || 'Not assigned'}</strong>
             </div>
             <div>
               <span>MNO reference</span>
               <strong>{selected.mnoReference || 'Not assigned'}</strong>
             </div>
+            <div>
+              <span>Idempotency key</span>
+              <code>{selected.idempotencyKey}</code>
+            </div>
+            <div>
+              <span>Provider status</span>
+              <strong>{selected.providerStatus || 'Not reported'}</strong>
+            </div>
+            <div>
+              <span>Initiated</span>
+              <strong>{shortDate(selected.initiatedAt)}</strong>
+            </div>
+            <div>
+              <span>Completed</span>
+              <strong>{shortDate(selected.completedAt)}</strong>
+            </div>
+            <div>
+              <span>Provider callback</span>
+              <strong>{shortDate(selected.callbackReceivedAt)}</strong>
+            </div>
+            <div>
+              <span>Last updated</span>
+              <strong>{shortDate(selected.updatedAt)}</strong>
+            </div>
+            {selected.externalRecipient && (
+              <div>
+                <span>External recipient</span>
+                <code>{JSON.stringify(selected.externalRecipient)}</code>
+              </div>
+            )}
             {selected.failureReason && (
               <div className="failure-detail">
                 <span>Failure reason</span>

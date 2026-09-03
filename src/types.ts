@@ -30,11 +30,20 @@ export type Transaction = {
   type: string
   amountZmw: number
   feeZmw: number
+  netAmountZmw: number
   network: string
   status: string
+  reference?: string | null
+  providerStatus?: string | null
   mnoReference?: string | null
+  callbackReceivedAt?: string | null
   failureReason?: string | null
+  senderAccountId?: string | null
+  receiverAccountId?: string | null
+  externalRecipient?: Record<string, unknown> | null
   initiatedAt: string
+  completedAt?: string | null
+  updatedAt: string
 }
 
 export type KycSubmission = {
@@ -64,6 +73,7 @@ export type FraudFlag = {
 export type AuditLog = {
   id: string
   adminEmail: string
+  actorType: 'administrator' | 'user'
   action: string
   targetType?: string
   targetId?: string

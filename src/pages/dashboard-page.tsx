@@ -11,7 +11,7 @@ import {
   Users,
   WalletCards,
 } from 'lucide-react'
-import { api, money, shortDate, titleCase } from '../api'
+import { api, money, shortDate, subscribeToAdminEvents, titleCase } from '../api'
 import { EmptyState, LoadingState, PageHeader, StatusPill } from '../components'
 import { useAuth } from '../auth-context'
 import type { FraudFlag, KycSubmission, User } from '../types'
@@ -31,11 +31,23 @@ export function DashboardPage() {
   const [users, setUsers] = useState<User[]>([])
   const [kyc, setKyc] = useState<KycSubmission[]>([])
   const [fraud, setFraud] = useState<FraudFlag[]>([])
+  const [counts, setCounts] = useState<{
+    totalUsers: number | null
+    pendingKyc: number | null
+    openFraudFlags: number | null
+  } | null>(null)
+  const [live, setLive] = useState(false)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
   const load = useCallback(async () => {
-    const requests: Promise<void>[] = []
+    const requests: Promise<unknown>[] = [
+      api<{
+        totalUsers: number | null
+        pendingKyc: number | null
+        openFraudFlags: number | null
+      }>('/admin/dashboard/counts').then(setCounts),
+    ]
     if (roleCan(admin.role, ['finance', 'operations'])) {
       requests.push(api<PlatformOverview>('/analytics/platform/overview').then(setOverview))
       requests.push(
@@ -56,6 +68,8 @@ export function DashboardPage() {
   useEffect(() => {
     load().finally(() => setLoading(false))
   }, [load])
+
+  useEffect(() => subscribeToAdminEvents(() => void load(), setLive), [load])
 
   const refresh = async () => {
     setRefreshing(true)
@@ -120,21 +134,21 @@ export function DashboardPage() {
           <>
             <MetricCard
               label="Pending KYC"
-              value={kyc.length}
+              value={counts?.pendingKyc ?? 0}
               detail="Identity reviews waiting"
               icon={FileCheck2}
             />
             <MetricCard
               label="Open risk flags"
-              value={fraud.length}
+              value={counts?.openFraudFlags ?? 0}
               detail="Cases needing attention"
               icon={ShieldAlert}
               tone="orange"
             />
             <MetricCard
-              label="Recent accounts"
-              value={users.length}
-              detail="Latest visible registrations"
+              label="Platform accounts"
+              value={counts?.totalUsers ?? 0}
+              detail="Exact registered account count"
               icon={Users}
               tone="teal"
             />
@@ -149,7 +163,7 @@ export function DashboardPage() {
               <h2>Requires attention</h2>
             </div>
             <span className="live-indicator">
-              <i /> Live
+              <i /> {live ? 'Live' : 'Connecting'}
             </span>
           </div>
           <div className="attention-list">
@@ -158,7 +172,7 @@ export function DashboardPage() {
                 type="button"
                 className="attention-row"
                 onClick={() => navigate('/kyc')}
-                disabled={!kyc.length}
+                disabled={!counts?.pendingKyc}
               >
                 <span className="attention-icon blue">
                   <FileCheck2 />
@@ -166,12 +180,12 @@ export function DashboardPage() {
                 <div>
                   <strong>KYC submissions</strong>
                   <p>
-                    {kyc.length
-                      ? `${kyc.length} customers are waiting for a decision.`
+                    {counts?.pendingKyc
+                      ? `${counts.pendingKyc} customers are waiting for a decision.`
                       : 'The identity review queue is clear.'}
                   </p>
                 </div>
-                <b>{kyc.length}</b>
+                <b>{counts?.pendingKyc ?? 0}</b>
               </button>
             )}
             {roleCan(admin.role, ['compliance', 'operations']) && (
@@ -179,7 +193,7 @@ export function DashboardPage() {
                 type="button"
                 className="attention-row"
                 onClick={() => navigate('/fraud')}
-                disabled={!fraud.length}
+                disabled={!counts?.openFraudFlags}
               >
                 <span className="attention-icon orange">
                   <ShieldAlert />
@@ -187,12 +201,12 @@ export function DashboardPage() {
                 <div>
                   <strong>Risk investigations</strong>
                   <p>
-                    {fraud.length
+                    {counts?.openFraudFlags
                       ? 'Open flags require evidence review.'
                       : 'No open risk flags in the current queue.'}
                   </p>
                 </div>
-                <b>{fraud.length}</b>
+                <b>{counts?.openFraudFlags ?? 0}</b>
               </button>
             )}
             {overview && (
