@@ -87,7 +87,7 @@ export function TransactionsPage() {
           onChange={(e) => table.set({ network: e.target.value })}
         >
           <option value="">All networks</option>
-          {['mtn', 'airtel', 'zamtel', 'bank'].map((n) => (
+          {['mtn', 'airtel', 'zamtel', 'bank', 'wallet'].map((n) => (
             <option key={n} value={n}>
               {titleCase(n)}
             </option>
