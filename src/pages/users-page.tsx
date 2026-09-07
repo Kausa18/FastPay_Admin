@@ -160,7 +160,7 @@ export function UsersPage() {
             </label>
             <div className="modal-warning">
               <AlertTriangle size={18} />
-              <span>Suspended and banned users will immediately lose access to FastPay.</span>
+              <span>Suspended and banned users will immediately lose access to BrinkPay.</span>
             </div>
             <ActionError message={mutation.error} />
             <div className="modal-actions">

@@ -91,7 +91,7 @@ export function DashboardPage() {
       <PageHeader
         eyebrow="Platform command centre"
         title={`Good ${new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, ${(admin.fullName || 'admin').split(' ')[0]}.`}
-        description="Here's what needs attention across FastPay right now."
+        description="Here's what needs attention across BrinkPay right now."
         action={
           <button className="button secondary" onClick={refresh} disabled={refreshing}>
             <RefreshCw size={17} className={refreshing ? 'spin' : ''} /> Refresh data

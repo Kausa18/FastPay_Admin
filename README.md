@@ -1,10 +1,10 @@
-# FastPay Admin
+# BrinkPay Admin
 
-Desktop-first administration frontend for the FastPay platform. It uses the
+Desktop-first administration frontend for the BrinkPay platform. It uses the
 separate administrator authentication and role-based endpoints exposed by the
-FastPay Python backend.
+BrinkPay Python backend.
 
-The interface is built with React, Vite, TypeScript, and Tailwind CSS. FastPay
+The interface is built with React, Vite, TypeScript, and Tailwind CSS. BrinkPay
 design tokens are defined with Tailwind's `@theme` configuration in
 `src/styles.css`; shared components use Tailwind utilities and `@apply`, with
 small custom rules retained for branded charts and complex operational layouts.
@@ -28,7 +28,7 @@ python -m app.cli.create_admin --email admin@example.com --name "Platform Admini
 
 ## Configuration
 
-`VITE_API_BASE_URL` is the public URL of the FastPay API. It is the only value
+`VITE_API_BASE_URL` is the public URL of the BrinkPay API. It is the only value
 that belongs in the frontend environment. Never put `ADMIN_JWT_SECRET` or
 `ADMIN_API_KEY` in this project; those are backend-only secrets.
 

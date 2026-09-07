@@ -33,8 +33,7 @@ export function LoginPage({ onLogin }: { onLogin: (admin: AdminUser) => void }) 
     <main className="login-page">
       <section className="login-brand">
         <div className="brand-lockup">
-          <img src="/fastpay-logo.png" alt="" />
-          <span>FastPay</span>
+          <img className="brand-wordmark" src="/brinkpay-wordmark.png" alt="BrinkPay" />
         </div>
         <div className="login-copy">
           <span className="secure-label">
@@ -60,8 +59,7 @@ export function LoginPage({ onLogin }: { onLogin: (admin: AdminUser) => void }) 
       <section className="login-panel">
         <div className="login-form-wrap">
           <div className="mobile-brand brand-lockup">
-            <img src="/fastpay-logo.png" alt="" />
-            <span>FastPay</span>
+            <img className="brand-wordmark" src="/brinkpay-wordmark.png" alt="BrinkPay" />
           </div>
           <p className="eyebrow">Platform administration</p>
           <h2>Welcome back</h2>
@@ -76,7 +74,7 @@ export function LoginPage({ onLogin }: { onLogin: (admin: AdminUser) => void }) 
                 autoComplete="username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@fastpay.com"
+                placeholder="you@example.com"
                 required
               />
             </label>

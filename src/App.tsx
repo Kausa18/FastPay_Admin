@@ -35,7 +35,7 @@ export default function App() {
   if (checking) {
     return (
       <div className="boot-screen">
-        <img src="/fastpay-logo.png" alt="FastPay" />
+        <img src="/brinkpay-logo.png" alt="BrinkPay" />
         <span className="spinner" />
       </div>
     )

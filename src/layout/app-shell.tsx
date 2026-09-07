@@ -82,8 +82,7 @@ export function AppShell({ admin, onLogout }: { admin: AdminUser; onLogout: () =
         )}
         <aside className={`sidebar ${mobileOpen ? 'open' : ''}`}>
           <div className="sidebar-brand brand-lockup">
-            <img src="/fastpay-logo.png" alt="" />
-            <span>FastPay</span>
+            <img className="brand-wordmark" src="/brinkpay-wordmark.png" alt="BrinkPay" />
             <small>ADMIN</small>
             <button className="mobile-close" onClick={() => setMobileOpen(false)}>
               <X />

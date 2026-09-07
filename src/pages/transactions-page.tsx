@@ -146,7 +146,7 @@ export function TransactionsPage() {
               <strong>{titleCase(selected.network)}</strong>
             </div>
             <div>
-              <span>FastPay reference</span>
+              <span>BrinkPay reference</span>
               <strong>{selected.reference || 'Not assigned'}</strong>
             </div>
             <div>
