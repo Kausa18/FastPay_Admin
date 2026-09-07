@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowUpRight, RefreshCw } from 'lucide-react'
-import { api, money, shortDate, subscribeToAdminEvents, titleCase } from '../api'
+import { api, browserTimeZone, money, shortDate, subscribeToAdminEvents, titleCase } from '../api'
 import {
   EmptyState,
   ErrorState,
@@ -18,8 +18,17 @@ import { PageStats } from './page-stats'
 import { useTableState } from '../hooks/use-table-state'
 
 type Totals = { count: number; volume: number; completed: number; failed: number }
-type Day = Totals & { date: string }
-type Trends = { days: number; daily: Day[]; current: Totals; previous: Totals; updatedAt: string }
+type Bucket = Totals & { date: string }
+type Granularity = 'hour' | 'day' | 'month'
+type Period = 'day' | 'week' | 'month' | 'year'
+type Trends = {
+  period: Period
+  granularity: Granularity
+  series: Bucket[]
+  current: Totals
+  previous: Totals
+  updatedAt: string
+}
 type Counts = {
   totalUsers: number | null
   pendingKyc: number | null
@@ -32,18 +41,49 @@ const compare = (current: number, previous: number) =>
       ? 'No activity in the previous period'
       : 'No activity in either period'
 
+const PERIOD_LABEL: Record<Period, string> = {
+  day: 'last 24 hours',
+  week: 'last 7 days',
+  month: 'last 30 days',
+  year: 'last 12 months',
+}
+
+function formatBucketLabel(date: string, granularity: Granularity) {
+  if (granularity === 'hour') {
+    const [, time] = date.split('T')
+    return `${time} UTC`
+  }
+  if (granularity === 'month') {
+    const [year, month] = date.split('-')
+    return new Date(Date.UTC(Number(year), Number(month) - 1, 1)).toLocaleDateString(undefined, {
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'UTC',
+    })
+  }
+  return new Intl.DateTimeFormat('en-ZM', {
+    day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
+  }).format(new Date(`${date}T00:00:00Z`))
+}
+
 function PaymentChart({ data }: { data: Trends }) {
   const [metric, setMetric] = useState<'volume' | 'count'>('volume')
   const [selected, setSelected] = useState<string | null>(null)
-  const max = Math.max(1, ...data.daily.map((day) => day[metric]))
+  const max = Math.max(1, ...data.series.map((bucket) => bucket[metric]))
   const current =
-    data.daily.find((day) => day.date === selected) || data.daily[data.daily.length - 1]
+    data.series.find((bucket) => bucket.date === selected) || data.series[data.series.length - 1]
   return (
     <article className="panel trend-panel">
       <div className="section-heading">
         <div>
           <h2>Payment activity</h2>
-          <p className="data-note">Daily totals in UTC. Today is still in progress.</p>
+          <p className="data-note">
+            {data.granularity === 'hour'
+              ? 'Hourly totals in UTC.'
+              : data.granularity === 'month'
+                ? 'Monthly totals in UTC.'
+                : 'Daily totals in UTC. Today is still in progress.'}
+          </p>
         </div>
         <div className="segmented-tabs" role="group" aria-label="Chart metric">
           <button
@@ -73,28 +113,28 @@ function PaymentChart({ data }: { data: Trends }) {
             <span>{metric === 'volume' ? money(max) : max.toLocaleString()}</span>
             <span>{metric === 'volume' ? 'Completed payment value' : 'Payments initiated'}</span>
           </div>
-          <div className="payment-chart" role="group" aria-label="Daily payment totals">
-            {data.daily.map((day) => (
+          <div className="payment-chart" role="group" aria-label="Payment totals">
+            {data.series.map((bucket) => (
               <button
-                key={day.date}
-                className={current?.date === day.date ? 'selected' : ''}
-                onMouseEnter={() => setSelected(day.date)}
-                onFocus={() => setSelected(day.date)}
-                onClick={() => setSelected(day.date)}
-                aria-label={`${day.date}: ${day.count} payments, ${money(day.volume)} completed`}
-                title={`${day.date}: ${metric === 'volume' ? money(day.volume) : day.count}`}
+                key={bucket.date}
+                className={current?.date === bucket.date ? 'selected' : ''}
+                onMouseEnter={() => setSelected(bucket.date)}
+                onFocus={() => setSelected(bucket.date)}
+                onClick={() => setSelected(bucket.date)}
+                aria-label={`${formatBucketLabel(bucket.date, data.granularity)}: ${bucket.count} payments, ${money(bucket.volume)} completed`}
+                title={`${formatBucketLabel(bucket.date, data.granularity)}: ${metric === 'volume' ? money(bucket.volume) : bucket.count}`}
               >
-                <span style={{ height: `${(day[metric] / max) * 100}%` }} />
+                <span style={{ height: `${(bucket[metric] / max) * 100}%` }} />
               </button>
             ))}
           </div>
           <div className="chart-dates">
-            <span>{data.daily[0]?.date}</span>
-            <span>{data.daily[data.daily.length - 1]?.date}</span>
+            <span>{formatBucketLabel(data.series[0]?.date, data.granularity)}</span>
+            <span>{formatBucketLabel(data.series[data.series.length - 1]?.date, data.granularity)}</span>
           </div>
           {current && (
             <p className="chart-detail" aria-live="polite">
-              <strong>{current.date}</strong>
+              <strong>{formatBucketLabel(current.date, data.granularity)}</strong>
               <span>{current.count} payments</span>
               <span>{money(current.volume)} completed</span>
               <span>{current.failed} failed</span>
@@ -103,7 +143,7 @@ function PaymentChart({ data }: { data: Trends }) {
         </>
       )}
       <details className="daily-breakdown">
-        <summary>View daily figures</summary>
+        <summary>View figures</summary>
         <div className="table-wrap">
           <table>
             <thead>
@@ -115,12 +155,12 @@ function PaymentChart({ data }: { data: Trends }) {
               </tr>
             </thead>
             <tbody>
-              {data.daily.map((day) => (
-                <tr key={day.date}>
-                  <td>{day.date}</td>
-                  <td className="numeric">{day.count}</td>
-                  <td className="numeric">{money(day.volume)}</td>
-                  <td className="numeric">{day.failed}</td>
+              {data.series.map((bucket) => (
+                <tr key={bucket.date}>
+                  <td>{formatBucketLabel(bucket.date, data.granularity)}</td>
+                  <td className="numeric">{bucket.count}</td>
+                  <td className="numeric">{money(bucket.volume)}</td>
+                  <td className="numeric">{bucket.failed}</td>
                 </tr>
               ))}
             </tbody>
@@ -131,10 +171,14 @@ function PaymentChart({ data }: { data: Trends }) {
   )
 }
 
+const PERIODS: Period[] = ['day', 'week', 'month', 'year']
+
 export function DashboardPage() {
   const { admin } = useAuth()
-  const filters = useTableState({ days: '7' })
-  const days = filters.get('days') === '30' ? 30 : 7
+  const filters = useTableState({ period: 'week' })
+  const period = PERIODS.includes(filters.get('period') as Period)
+    ? (filters.get('period') as Period)
+    : 'week'
   const canFinance = roleCan(admin.role, ['finance', 'operations'])
   const canUsers = roleCan(admin.role, ['support', 'compliance', 'operations'])
   const canKyc = roleCan(admin.role, ['compliance'])
@@ -142,15 +186,17 @@ export function DashboardPage() {
   const counts = useRemote(() => api<Counts>('/admin/dashboard/counts'))
   const trends = useRemote(
     () =>
-      canFinance ? api<Trends>(`/analytics/platform/trends?days=${days}`) : Promise.resolve(null),
-    String(days),
+      canFinance
+        ? api<Trends>(`/analytics/platform/trends?period=${period}`)
+        : Promise.resolve(null),
+    period,
   )
   const networks = useRemote(
     () =>
       canFinance
-        ? api<{ networks: NetworkStat[] }>(`/analytics/platform/networks?days=${days}`)
+        ? api<{ networks: NetworkStat[] }>(`/analytics/platform/networks?period=${period}`)
         : Promise.resolve(null),
-    String(days),
+    period,
   )
   const users = useRemote(() =>
     canUsers ? api<User[]>('/admin/users?limit=6') : Promise.resolve([]),
@@ -179,11 +225,13 @@ export function DashboardPage() {
             {canFinance && (
               <select
                 aria-label="Dashboard period"
-                value={days}
-                onChange={(e) => filters.set({ days: e.target.value })}
+                value={period}
+                onChange={(e) => filters.set({ period: e.target.value })}
               >
-                <option value="7">Last 7 days</option>
-                <option value="30">Last 30 days</option>
+                <option value="day">Day</option>
+                <option value="week">Week</option>
+                <option value="month">Month</option>
+                <option value="year">Year</option>
               </select>
             )}
             <button
@@ -201,7 +249,7 @@ export function DashboardPage() {
         <span className={`connection-status ${live ? 'connected' : ''}`}>
           {live ? 'Automatic updates connected' : 'Automatic updates reconnecting'}
         </span>
-        {trends.data && <span>Updated {shortDate(trends.data.updatedAt)}</span>}
+        {trends.data && <span>Updated {shortDate(trends.data.updatedAt)} · Times shown in {browserTimeZone}</span>}
       </div>
       <section className="priority-strip" aria-label="Work requiring attention">
         {counts.loading ? (
@@ -237,10 +285,10 @@ export function DashboardPage() {
           </>
         )}
         {canFinance && !trends.loading && !trends.error && trends.data && (
-          <Link className="priority-item warning" to={`/transactions?status=failed&days=${days}`}>
+          <Link className="priority-item warning" to={`/transactions?status=failed&period=${period}`}>
             <span>Failed payments</span>
             <strong>{trends.data.current.failed}</strong>
-            <small>In the selected {days}-day period</small>
+            <small>In the {PERIOD_LABEL[period]}</small>
             <ArrowUpRight size={18} />
           </Link>
         )}
@@ -258,7 +306,7 @@ export function DashboardPage() {
             trends.data && (
               <>
                 <PageStats
-                  scope={`Last ${days} UTC calendar days, including today. Comparison is against the preceding ${days} days.`}
+                  scope={`Data for the ${PERIOD_LABEL[period]} (UTC). Comparison is against the preceding period.`}
                   items={[
                     {
                       label: 'Completed value',
@@ -287,7 +335,7 @@ export function DashboardPage() {
           <section className="panel provider-panel">
             <div className="section-heading">
               <h2>Provider performance</h2>
-              <span className="data-note">Last {days} UTC calendar days</span>
+              <span className="data-note">Data for the {PERIOD_LABEL[period]} (UTC)</span>
             </div>
             {networks.loading ? (
               <LoadingState />
@@ -311,7 +359,7 @@ export function DashboardPage() {
                     <p>
                       {network.transaction_count} payments · {network.failed_count} failed
                     </p>
-                    <Link to={`/transactions?network=${network.network}&days=${days}`}>
+                    <Link to={`/transactions?network=${network.network}&period=${period}`}>
                       View payments
                     </Link>
                   </article>

@@ -24,14 +24,14 @@ export function TransactionsPage() {
     status: '',
     user_id: '',
     network: '',
-    days: '',
+    period: '',
   })
   const status = table.get('status'),
     userId = table.get('user_id')
   const setStatus = (status: string) => table.set({ status })
   const setUserId = (user_id: string) => table.set({ user_id })
   const [selected, setSelected] = useState<Transaction | null>(null)
-  const path = `/admin/transactions?${table.paging}${table.get('days') ? `&days=${table.get('days')}` : ''}${table.get('network') ? `&network=${table.get('network')}` : ''}${status ? `&status=${status}` : ''}${userId ? `&user_id=${encodeURIComponent(userId)}` : ''}`
+  const path = `/admin/transactions?${table.paging}${table.get('period') ? `&period=${table.get('period')}` : ''}${table.get('network') ? `&network=${table.get('network')}` : ''}${status ? `&status=${status}` : ''}${userId ? `&user_id=${encodeURIComponent(userId)}` : ''}`
   const { data, loading, error, reload } = useRemote(() => api<PageResult<Transaction>>(path), path)
   return (
     <>
@@ -95,12 +95,14 @@ export function TransactionsPage() {
         </select>
         <select
           aria-label="Payment period"
-          value={table.get('days')}
-          onChange={(e) => table.set({ days: e.target.value })}
+          value={table.get('period')}
+          onChange={(e) => table.set({ period: e.target.value })}
         >
           <option value="">All time</option>
-          <option value="7">Last 7 UTC days</option>
-          <option value="30">Last 30 UTC days</option>
+          <option value="day">Last 24 UTC hours</option>
+          <option value="week">Last 7 UTC days</option>
+          <option value="month">Last 30 UTC days</option>
+          <option value="year">Last 12 UTC months</option>
         </select>
         <button className="button secondary" onClick={table.reset}>
           Reset filters

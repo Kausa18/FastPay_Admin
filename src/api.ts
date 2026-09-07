@@ -100,12 +100,25 @@ export function subscribeToAdminEvents(
 export const money = (value: number | string | undefined) =>
   new Intl.NumberFormat('en-ZM', { style: 'currency', currency: 'ZMW' }).format(Number(value || 0))
 
-export const shortDate = (value?: string | null) =>
-  value
-    ? new Intl.DateTimeFormat('en-ZM', { dateStyle: 'medium', timeStyle: 'short' }).format(
-        new Date(value),
-      )
-    : '—'
+export const browserTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+
+const timestamp = (value: string) =>
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(value) ? `${value}Z` : value
+
+export const shortDate = (value?: string | null) => {
+  if (!value) return '—'
+  const date = new Date(timestamp(value))
+  if (Number.isNaN(date.getTime())) return 'Invalid date'
+  return new Intl.DateTimeFormat('en-ZM', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: browserTimeZone,
+    timeZoneName: 'short',
+  }).format(date)
+}
 
 export const titleCase = (value?: string) =>
   value ? value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()) : '—'
