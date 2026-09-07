@@ -1,4 +1,5 @@
-﻿import { Link } from 'react-router-dom'
+﻿import { Avatar } from '../ui/avatar'
+import { Link } from 'react-router-dom'
 import { api, money, shortDate, titleCase } from '../api'
 import { ErrorState, LoadingState, Modal, StatusPill, useRemote } from '../components'
 import type { AuditLog, Transaction, User } from '../types'
@@ -48,7 +49,7 @@ export function AccountDrawer({
         data && (
           <>
             <div className="drawer-profile">
-              <span className="admin-avatar">{data.user.fullName.slice(0, 1)}</span>
+              <Avatar name={data.user.fullName} photo={data.user.profilePhoto} large />
               <div>
                 <h3>{data.user.fullName}</h3>
                 <p>@{data.user.username}</p>
@@ -170,3 +171,5 @@ export function AccountDrawer({
     </Modal>
   )
 }
+
+

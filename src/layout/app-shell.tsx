@@ -1,3 +1,5 @@
+import { Avatar } from '../ui/avatar'
+import { ProfileEditor } from '../pages/profile-editor'
 import { useEffect, useState } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import {
@@ -50,7 +52,11 @@ const navigation = [
   { path: '/audit', label: 'Activity log', icon: FileClock },
 ]
 
-export function AppShell({ admin, onLogout }: { admin: AdminUser; onLogout: () => Promise<void> }) {
+export function AppShell({ admin: initialAdmin, onLogout }: { admin: AdminUser; onLogout: () => Promise<void> }) {
+  const [admin, setAdmin] = useState(initialAdmin)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [profileNotice, setProfileNotice] = useState('')
+  useEffect(() => setAdmin(initialAdmin), [initialAdmin])
   const [mobileOpen, setMobileOpen] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
@@ -122,14 +128,13 @@ export function AppShell({ admin, onLogout }: { admin: AdminUser; onLogout: () =
           </nav>
           <div className="sidebar-foot">
             <div className="sidebar-identity">
-              <span className="admin-avatar">
-                {(admin.fullName || admin.email).slice(0, 1).toUpperCase()}
-              </span>
+              <Avatar name={admin.fullName || admin.email} photo={admin.profilePhoto} />
               <div>
                 <strong>{admin.fullName || admin.email}</strong>
                 <small>{admin.role.replaceAll('_', ' ')}</small>
               </div>
             </div>
+            {admin.id && <button onClick={() => { setProfileOpen(true); setMobileOpen(false) }}>Edit profile</button>}
             <button onClick={onLogout}>
               <LogOut size={18} />
               Sign out
@@ -149,6 +154,8 @@ export function AppShell({ admin, onLogout }: { admin: AdminUser; onLogout: () =
             <img src="/brinkpay-wordmark.png" alt="BrinkPay" />
           </div>
           <main className="page-content">
+            {profileNotice && <div className="success-banner" role="status">{profileNotice}<button aria-label="Dismiss profile update" onClick={() => setProfileNotice('')}><X size={16} /></button></div>}
+            {profileOpen && <ProfileEditor admin={admin} onClose={() => setProfileOpen(false)} onSaved={updated => { setAdmin(updated); setProfileOpen(false); setProfileNotice('Your profile has been updated.') }} />}
             <Routes>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/users" element={<UsersPage />} />
@@ -166,3 +173,4 @@ export function AppShell({ admin, onLogout }: { admin: AdminUser; onLogout: () =
     </AuthContext.Provider>
   )
 }
+

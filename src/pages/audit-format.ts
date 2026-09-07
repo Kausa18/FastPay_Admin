@@ -1,6 +1,7 @@
 import type { AuditLog } from '../types'
 
 export const auditActions: Record<string, { title: string; summary: string }> = {
+  'admin.profile_updated': { title: 'Administrator profile updated', summary: 'Updated the administrator name or profile picture.' },
   'user_details.read': {title: 'Account details viewed', summary: 'Viewed an account profile, linked accounts and recent payments.'},
   'platform_trends.read': {title: 'Payment trends viewed', summary: 'Viewed daily payment activity for the selected period.'},
   'account.profile_updated': { title: 'Profile updated', summary: 'Changed the account profile.' },

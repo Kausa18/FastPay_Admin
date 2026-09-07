@@ -3,6 +3,7 @@ export type AdminRole = 'support' | 'compliance' | 'finance' | 'operations' | 's
 export type AdminUser = {
   id?: string
   email: string
+  profilePhoto?: string | null
   fullName?: string
   role: AdminRole
   status?: 'active' | 'disabled'
@@ -13,6 +14,7 @@ export type AdminUser = {
 export type User = {
   id: string
   username: string
+  profilePhoto?: string | null
   fullName: string
   phoneNumber: string
   email: string
@@ -82,3 +84,4 @@ export type AuditLog = {
   ipAddress?: string
   createdAt: string
 }
+

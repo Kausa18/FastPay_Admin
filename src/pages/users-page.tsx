@@ -1,3 +1,4 @@
+import { Avatar } from '../ui/avatar'
 import { AccountDrawer } from './account-drawer'
 import { useTableState } from '../hooks/use-table-state'
 import { Pagination, SortHeader, type PageResult } from '../ui/table'
@@ -156,7 +157,7 @@ export function UsersPage() {
                   <tr key={user.id}>
                     <td>
                       <div className="person-cell">
-                        <span>{user.fullName.slice(0, 2).toUpperCase()}</span>
+                        <Avatar name={user.fullName} photo={user.profilePhoto} />
                         <div>
                           <strong>{user.fullName}</strong>
                           <small>@{user.username}</small>
@@ -249,4 +250,5 @@ export function UsersPage() {
     </>
   )
 }
+
 

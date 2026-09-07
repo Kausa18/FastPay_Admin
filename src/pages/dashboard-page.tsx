@@ -13,6 +13,7 @@ import {
 import { useAuth } from '../auth-context'
 import type { User } from '../types'
 import { NetworkStat, roleCan } from './shared'
+import { Avatar } from '../ui/avatar'
 import { PageStats } from './page-stats'
 import { useTableState } from '../hooks/use-table-state'
 
@@ -348,8 +349,8 @@ export function DashboardPage() {
                   {users.data.map((user) => (
                     <tr key={user.id}>
                       <td>
-                        <strong>{user.fullName}</strong>
-                        <small className="fee-label">@{user.username}</small>
+                        <div className="person-cell"><Avatar name={user.fullName} photo={user.profilePhoto} /><div><strong>{user.fullName}</strong>
+                        <small className="fee-label">@{user.username}</small></div></div>
                       </td>
                       <td>{titleCase(user.accountType)}</td>
                       <td>

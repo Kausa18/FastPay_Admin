@@ -2731,3 +2731,13 @@ th[aria-sort='descending'] {
     animation: none;
   }
 }
+
+.profile-avatar { display: inline-flex; flex: 0 0 40px; width: 40px; height: 40px; border-radius: 50%; overflow: hidden; align-items: center; justify-content: center; background: #e9f0ff; color: #0752d9; font-size: 13px; font-weight: 700; }
+.profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.profile-avatar.large { width: 88px; height: 88px; flex-basis: 88px; font-size: 25px; }
+.profile-photo-editor { display: flex; align-items: center; gap: 20px; }
+.profile-photo-editor label { min-width: 0; flex: 1; }
+.profile-photo-editor input { width: 100%; }
+.profile-photo-editor small { font-weight: 400; line-height: 1.5; }
+.person-cell > .profile-avatar { padding: 0; }
+@media (max-width: 480px) { .profile-photo-editor { flex-direction: column; align-items: flex-start; } }
