@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { Modal } from '../components'
 import { FileCheck2 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { AdminRole } from '../types'
@@ -51,23 +53,70 @@ export function MetricCard({
 }
 
 export function DocumentImage({ label, value }: { label: string; value: string }) {
+  const [open, setOpen] = useState(false)
+  const [zoom, setZoom] = useState(1)
+  const [rotation, setRotation] = useState(0)
+  const [failed, setFailed] = useState(false)
   const source = value.startsWith('data:') ? value : `data:image/jpeg;base64,${value}`
   return (
     <figure>
       <figcaption>{label}</figcaption>
       <div>
-        <img
-          src={source}
-          alt={label}
-          onError={(event) => {
-            event.currentTarget.style.display = 'none'
-            event.currentTarget.nextElementSibling?.classList.remove('hidden')
-          }}
-        />
-        <span className="document-placeholder hidden">
-          <FileCheck2 size={30} /> Preview unavailable
-        </span>
+        {failed ? (
+          <span className="document-placeholder">
+            <FileCheck2 size={30} />
+            Preview unavailable
+          </span>
+        ) : (
+          <img src={source} alt={label} onError={() => setFailed(true)} />
+        )}
       </div>
+      <button
+        className="button secondary document-open"
+        disabled={failed}
+        onClick={() => {
+          setZoom(1)
+          setRotation(0)
+          setOpen(true)
+        }}
+      >
+        Enlarge {label.toLowerCase()}
+      </button>
+      {open && (
+        <Modal title={label} onClose={() => setOpen(false)} variant="drawer">
+          <div className="document-controls">
+            <label>
+              Zoom{' '}
+              <input
+                aria-label="Document zoom"
+                type="range"
+                min="1"
+                max="3"
+                step="0.25"
+                value={zoom}
+                onChange={(e) => setZoom(Number(e.target.value))}
+              />
+            </label>
+            <button className="button secondary" onClick={() => setRotation((rotation + 90) % 360)}>
+              Rotate
+            </button>
+            <button
+              className="button secondary"
+              onClick={() => {
+                setZoom(1)
+                setRotation(0)
+              }}
+            >
+              Reset
+            </button>
+          </div>
+          <div className="document-zoom">
+            <div style={{ width: `${zoom * 100}%`, height: `${zoom * 65}vh` }}>
+              <img src={source} alt={label} style={{ transform: `rotate(${rotation}deg)` }} />
+            </div>
+          </div>
+        </Modal>
+      )}
     </figure>
   )
 }

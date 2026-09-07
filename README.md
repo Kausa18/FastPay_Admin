@@ -67,3 +67,12 @@ rewrite unknown routes to `/index.html` so browser navigation works correctly.
 
 The network-adapter panel is deliberately labelled as demo/configuration data
 until the backend exposes live MNO health checks.
+
+## Admin workflow release
+
+Deploy the matching backend before this admin build. Accounts, transactions and risk queues use paginated API responses with totals and sorting across all matching records. Team access and KYC paginate their existing complete lists locally. Filters and page size are stored in the URL and restored within the browser session.
+
+The dashboard compares 7 or 30 UTC calendar days (including the partial current day) with the preceding period. Account drawers show masked linked accounts and recent transactions; recent audit activity remains restricted to super administrators. KYC previews support enlargement and rotation, and risk decisions advance through the queue.
+
+Validation: backend pytest suite (86 passed), audit-format tests (6 passed), production build, and mocked desktop/mobile browser workflow checks. Global search is outside this release.
+

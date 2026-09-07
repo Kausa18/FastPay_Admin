@@ -3,13 +3,11 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-
 import {
   Activity,
   BadgeCheck,
-  ChevronDown,
   CircleDollarSign,
   FileClock,
   LayoutDashboard,
   LogOut,
   Menu,
-  Search,
   ShieldAlert,
   ShieldCheck,
   Users,
@@ -17,6 +15,7 @@ import {
 } from 'lucide-react'
 import { AuthContext } from '../auth-context'
 import { api } from '../api'
+import { useIdleLogout } from '../hooks/use-idle-logout'
 import type { AdminRole, AdminUser } from '../types'
 import {
   AccessPage,
@@ -42,25 +41,20 @@ const access: Record<string, AdminRole[]> = {
 
 const navigation = [
   { path: '/', label: 'Overview', icon: LayoutDashboard },
-  { path: '/users', label: 'Users & merchants', icon: Users },
-  { path: '/kyc', label: 'KYC reviews', icon: BadgeCheck },
+  { path: '/users', label: 'Accounts', icon: Users },
+  { path: '/kyc', label: 'Identity reviews', icon: BadgeCheck },
   { path: '/transactions', label: 'Transactions', icon: Activity },
-  { path: '/fraud', label: 'Fraud & risk', icon: ShieldAlert },
-  { path: '/finance', label: 'Finance & ledger', icon: CircleDollarSign },
-  { path: '/access', label: 'Admin access', icon: ShieldCheck },
-  { path: '/audit', label: 'Audit trail', icon: FileClock },
+  { path: '/fraud', label: 'Risk cases', icon: ShieldAlert },
+  { path: '/finance', label: 'Finance', icon: CircleDollarSign },
+  { path: '/access', label: 'Team access', icon: ShieldCheck },
+  { path: '/audit', label: 'Activity log', icon: FileClock },
 ]
 
 export function AppShell({ admin, onLogout }: { admin: AdminUser; onLogout: () => Promise<void> }) {
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [profileOpen, setProfileOpen] = useState(false)
-  const [quickSearch, setQuickSearch] = useState('')
   const location = useLocation()
   const navigate = useNavigate()
   const allowedNav = navigation.filter((item) => access[item.path].includes(admin.role))
-  const searchResults = quickSearch
-    ? allowedNav.filter((item) => item.label.toLowerCase().includes(quickSearch.toLowerCase()))
-    : []
   const current = navigation.find((item) => item.path === location.pathname)?.label || 'Overview'
 
   useEffect(() => {
@@ -69,6 +63,10 @@ export function AppShell({ admin, onLogout }: { admin: AdminUser; onLogout: () =
       body: JSON.stringify({ path: location.pathname, pageName: current }),
     }).catch(() => undefined)
   }, [location.pathname, current])
+
+  useIdleLogout(() => {
+    void onLogout()
+  })
 
   return (
     <AuthContext.Provider value={{ admin, logout: onLogout }}>
@@ -84,31 +82,52 @@ export function AppShell({ admin, onLogout }: { admin: AdminUser; onLogout: () =
           <div className="sidebar-brand brand-lockup">
             <img className="brand-wordmark" src="/brinkpay-wordmark.png" alt="BrinkPay" />
             <small>ADMIN</small>
-            <button className="mobile-close" onClick={() => setMobileOpen(false)}>
+            <button
+              className="mobile-close"
+              aria-label="Close navigation"
+              onClick={() => setMobileOpen(false)}
+            >
               <X />
             </button>
           </div>
-          <nav>
-            {allowedNav.map(({ path, label, icon: Icon }) => (
-              <button
-                key={path}
-                className={location.pathname === path ? 'active' : ''}
-                onClick={() => {
-                  navigate(path)
-                  setMobileOpen(false)
-                }}
-              >
-                <Icon size={19} />
-                <span>{label}</span>
-              </button>
-            ))}
+          <nav aria-label="Main navigation">
+            {[
+              { title: 'Operations', paths: ['/', '/users', '/transactions', '/finance'] },
+              { title: 'Compliance', paths: ['/kyc', '/fraud'] },
+              { title: 'Administration', paths: ['/access', '/audit'] },
+            ].map((group) => {
+              const items = allowedNav.filter((item) => group.paths.includes(item.path))
+              return (
+                items.length > 0 && (
+                  <div className="nav-group" key={group.title}>
+                    <p>{group.title}</p>
+                    {items.map(({ path, label, icon: Icon }) => (
+                      <button
+                        key={path}
+                        className={location.pathname === path ? 'active' : ''}
+                        aria-current={location.pathname === path ? 'page' : undefined}
+                        onClick={() => {
+                          navigate(path)
+                          setMobileOpen(false)
+                        }}
+                      >
+                        <Icon size={18} />
+                        <span>{label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )
+              )
+            })}
           </nav>
           <div className="sidebar-foot">
-            <div className="environment">
-              <span />
+            <div className="sidebar-identity">
+              <span className="admin-avatar">
+                {(admin.fullName || admin.email).slice(0, 1).toUpperCase()}
+              </span>
               <div>
-                <strong>Admin API</strong>
-                <small>Authenticated session</small>
+                <strong>{admin.fullName || admin.email}</strong>
+                <small>{admin.role.replaceAll('_', ' ')}</small>
               </div>
             </div>
             <button onClick={onLogout}>
@@ -118,74 +137,17 @@ export function AppShell({ admin, onLogout }: { admin: AdminUser; onLogout: () =
           </div>
         </aside>
         <div className="workspace">
-          <header className="topbar">
-            <button className="menu-button" onClick={() => setMobileOpen(true)}>
+          <div className="mobile-navigation">
+            <button
+              className="icon-button"
+              aria-label="Open navigation"
+              aria-expanded={mobileOpen}
+              onClick={() => setMobileOpen(true)}
+            >
               <Menu />
             </button>
-            <div>
-              <span>Workspace</span>
-              <strong>{current}</strong>
-            </div>
-            <form
-              className="top-search"
-              onSubmit={(event) => {
-                event.preventDefault()
-                if (searchResults[0]) {
-                  navigate(searchResults[0].path)
-                  setQuickSearch('')
-                }
-              }}
-            >
-              <Search size={18} />
-              <input
-                value={quickSearch}
-                onChange={(event) => setQuickSearch(event.target.value)}
-                placeholder="Find a workspace page"
-              />
-              {searchResults.length > 0 && (
-                <div className="quick-results">
-                  {searchResults.map(({ path, label, icon: Icon }) => (
-                    <button
-                      type="button"
-                      key={path}
-                      onClick={() => {
-                        navigate(path)
-                        setQuickSearch('')
-                      }}
-                    >
-                      <Icon size={16} />
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </form>
-            <div className="profile-wrap">
-              <button className="profile-button" onClick={() => setProfileOpen(!profileOpen)}>
-                <span>
-                  {(admin.fullName || admin.email)
-                    .split(' ')
-                    .map((part) => part[0])
-                    .slice(0, 2)
-                    .join('')
-                    .toUpperCase()}
-                </span>
-                <div>
-                  <strong>{admin.fullName || admin.email}</strong>
-                  <small>{admin.role.replaceAll('_', ' ')}</small>
-                </div>
-                <ChevronDown size={16} />
-              </button>
-              {profileOpen && (
-                <div className="profile-menu">
-                  <p>{admin.email}</p>
-                  <button onClick={onLogout}>
-                    <LogOut size={16} /> Sign out
-                  </button>
-                </div>
-              )}
-            </div>
-          </header>
+            <img src="/brinkpay-wordmark.png" alt="BrinkPay" />
+          </div>
           <main className="page-content">
             <Routes>
               <Route path="/" element={<DashboardPage />} />

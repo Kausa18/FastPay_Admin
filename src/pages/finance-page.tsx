@@ -21,6 +21,7 @@ export function FinancePage() {
     String(canLedger),
   )
   if (overview.loading || ledger.loading) return <LoadingState />
+  if (canLedger && ledger.error) return <ErrorState message={ledger.error} retry={ledger.reload} />
   if (overview.error) return <ErrorState message={overview.error} retry={overview.reload} />
   const data = overview.data!
   const entries = Object.entries(ledger.data?.accounts || {}) as [

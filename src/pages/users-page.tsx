@@ -1,3 +1,9 @@
+import { AccountDrawer } from './account-drawer'
+import { useTableState } from '../hooks/use-table-state'
+import { Pagination, SortHeader, type PageResult } from '../ui/table'
+import { roleCan } from './shared'
+import { useAuth } from '../auth-context'
+import { PageStats } from './page-stats'
 import type { FormEvent } from 'react'
 import { useState } from 'react'
 import { AlertTriangle, Check, ChevronRight, X } from 'lucide-react'
@@ -17,13 +23,18 @@ import {
 import type { User } from '../types'
 
 export function UsersPage() {
-  const [query, setQuery] = useState('')
-  const [status, setStatus] = useState('')
+  const { admin } = useAuth()
+  const table = useTableState({ sort: 'created', direction: 'desc', status: '', type: '', q: '' })
+  const query = table.get('q'),
+    status = table.get('status')
+  const setQuery = (q: string) => table.set({ q })
+  const [detailId, setDetailId] = useState<string | null>(null)
+  const [version, setVersion] = useState(0)
   const [selected, setSelected] = useState<User | null>(null)
   const [notice, setNotice] = useState('')
   const mutation = useAsyncAction()
-  const path = `/admin/users?limit=100${query ? `&q=${encodeURIComponent(query)}` : ''}${status ? `&status=${status}` : ''}`
-  const { data, setData, loading, error, reload } = useRemote(() => api<User[]>(path), path)
+  const path = `/admin/users?${table.paging}${table.get('type') ? `&account_type=${table.get('type')}` : ''}${query ? `&q=${encodeURIComponent(query)}` : ''}${status ? `&status=${status}` : ''}`
+  const { data, loading, error, reload } = useRemote(() => api<PageResult<User>>(path), path)
 
   const updateStatus = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -37,11 +48,8 @@ export function UsersPage() {
       }),
     )
     if (!updated) return
-    setData(
-      (data || []).map((user) =>
-        user.id === selected.id ? { ...user, status: nextStatus } : user,
-      ),
-    )
+    setVersion((value) => value + 1)
+    void reload()
     setNotice(`${selected.fullName}'s account is now ${nextStatus}.`)
     setSelected(null)
   }
@@ -53,6 +61,37 @@ export function UsersPage() {
         title="Users & merchants"
         description="Find accounts, verify their standing and apply controlled access changes."
       />
+      {!loading && !error && data && (
+        <PageStats
+          scope="All accounts matching the current filters"
+          items={[
+            {
+              label: 'Accounts',
+              value: data.total,
+              hint: 'Matching your search and status',
+            },
+            {
+              label: 'Merchants',
+              value: data.stats.merchants,
+              hint: 'Matching business accounts',
+              tone: 'teal',
+            },
+            {
+              label: 'Active',
+              value: data.stats.active,
+              hint: 'Accounts with active access',
+              tone: 'green',
+            },
+            {
+              label: 'Restricted',
+              value: data.stats.restricted,
+              hint: 'Suspended or banned accounts',
+              tone: 'orange',
+            },
+          ]}
+        />
+      )}
+
       {notice && (
         <div className="success-banner">
           <Check size={18} />
@@ -68,19 +107,35 @@ export function UsersPage() {
           onChange={setQuery}
           placeholder="Search username, email or phone"
         />
-        <select value={status} onChange={(e) => setStatus(e.target.value)}>
+        <select
+          value={status}
+          aria-label="Account status"
+          onChange={(e) => table.set({ status: e.target.value })}
+        >
           <option value="">All statuses</option>
           <option value="active">Active</option>
           <option value="suspended">Suspended</option>
           <option value="banned">Banned</option>
           <option value="pending_kyc">Pending KYC</option>
         </select>
+        <select
+          aria-label="Account type"
+          value={table.get('type')}
+          onChange={(e) => table.set({ type: e.target.value })}
+        >
+          <option value="">All account types</option>
+          <option value="personal">Personal</option>
+          <option value="merchant">Merchant</option>
+        </select>
+        <button className="button secondary" onClick={table.reset}>
+          Reset filters
+        </button>
       </div>
       {loading ? (
         <LoadingState />
       ) : error ? (
         <ErrorState message={error} retry={reload} />
-      ) : !data?.length ? (
+      ) : !data?.items.length ? (
         <EmptyState title="No users found" message="Try a different search or status filter." />
       ) : (
         <section className="panel table-panel">
@@ -88,16 +143,16 @@ export function UsersPage() {
             <table>
               <thead>
                 <tr>
-                  <th>User</th>
+                  <SortHeader label="User" column="name" state={table} />
                   <th>Contact</th>
-                  <th>Account</th>
-                  <th>KYC</th>
-                  <th>Status</th>
+                  <SortHeader label="Account" column="type" state={table} />
+                  <SortHeader label="KYC" column="kyc" state={table} />
+                  <SortHeader label="Status" column="status" state={table} />
                   <th />
                 </tr>
               </thead>
               <tbody>
-                {data.map((user) => (
+                {data.items.map((user) => (
                   <tr key={user.id}>
                     <td>
                       <div className="person-cell">
@@ -122,8 +177,8 @@ export function UsersPage() {
                       <StatusPill value={user.status} />
                     </td>
                     <td>
-                      <button className="row-action" onClick={() => setSelected(user)}>
-                        Manage <ChevronRight size={16} />
+                      <button className="row-action" onClick={() => setDetailId(user.id)}>
+                        View account <ChevronRight size={16} />
                       </button>
                     </td>
                   </tr>
@@ -133,8 +188,25 @@ export function UsersPage() {
           </div>
         </section>
       )}
+      {data && !error && <Pagination state={table} total={data.total} loading={loading} />}
+      {detailId && (
+        <AccountDrawer
+          id={detailId}
+          version={version}
+          onClose={() => setDetailId(null)}
+          onChangeStatus={
+            roleCan(admin.role, ['support', 'compliance'])
+              ? (user) => {
+                  mutation.clearError()
+                  setSelected(user)
+                }
+              : undefined
+          }
+        />
+      )}
       {selected && (
         <Modal
+          busy={mutation.busy}
           title="Change account status"
           description={`This action affects ${selected.fullName} (@${selected.username}) immediately.`}
           onClose={() => setSelected(null)}
@@ -164,7 +236,7 @@ export function UsersPage() {
             </div>
             <ActionError message={mutation.error} />
             <div className="modal-actions">
-              <button type="button" className="button secondary" onClick={() => setSelected(null)}>
+              <button type="button" disabled={mutation.busy} className="button secondary" onClick={() => setSelected(null)}>
                 Cancel
               </button>
               <button className="button primary" disabled={mutation.busy}>
@@ -177,3 +249,4 @@ export function UsersPage() {
     </>
   )
 }
+

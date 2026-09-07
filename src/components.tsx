@@ -3,7 +3,6 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { AlertCircle, CheckCircle2, Search, X } from 'lucide-react'
 
 export function PageHeader({
-  eyebrow,
   title,
   description,
   action,
@@ -16,7 +15,6 @@ export function PageHeader({
   return (
     <div className="page-header">
       <div>
-        {eyebrow && <p className="eyebrow">{eyebrow}</p>}
         <h1>{title}</h1>
         <p>{description}</p>
       </div>
@@ -65,12 +63,33 @@ export function SearchField({
 
 export function LoadingState() {
   return (
-    <div className="state-panel">
-      <span className="spinner" />
-      <strong>Loading workspace</strong>
-      <p>Fetching the latest platform data.</p>
+    <div className="loading-skeleton" role="status" aria-label="Loading data" aria-busy="true">
+      <span className="sr-only">Loading the latest records...</span>
+      <div className="skeleton-heading" aria-hidden="true" />
+      <div className="skeleton-cards" aria-hidden="true">
+        {[0, 1, 2].map((n) => (
+          <div key={n} />
+        ))}
+      </div>
+      <div className="skeleton-table" aria-hidden="true">
+        {[0, 1, 2, 3, 4].map((n) => (
+          <div key={n} />
+        ))}
+      </div>
     </div>
   )
+}
+
+export function Notice({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+  return message ? (
+    <div className="success-banner" role="status">
+      <CheckCircle2 size={18} />
+      <span>{message}</span>
+      <button aria-label="Dismiss message" onClick={onDismiss}>
+        <X size={16} />
+      </button>
+    </div>
+  ) : null
 }
 
 export function EmptyState({
@@ -113,33 +132,99 @@ export function ActionError({ message }: { message: string }) {
   )
 }
 
+let openDialogCount = 0
+let originalBodyOverflow = ''
+
 export function Modal({
   title,
   description,
   children,
   onClose,
+  variant = 'modal',
+  busy = false,
 }: {
   title: string
   description?: string
   children: ReactNode
   onClose: () => void
+  variant?: 'modal' | 'drawer'
+  busy?: boolean
 }) {
   const titleId = useId()
+  const panel = useRef<HTMLElement>(null)
+  const closeRef = useRef(onClose)
+  const busyRef = useRef(busy)
+  closeRef.current = onClose
+  busyRef.current = busy
   useEffect(() => {
-    const close = (event: KeyboardEvent) => event.key === 'Escape' && onClose()
-    window.addEventListener('keydown', close)
-    return () => window.removeEventListener('keydown', close)
-  }, [onClose])
+    const previous = document.activeElement as HTMLElement | null
+    if (openDialogCount++ === 0) originalBodyOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    panel.current?.focus()
+    const keydown = (event: KeyboardEvent) => {
+      const dialogs = document.querySelectorAll('[aria-modal="true"]')
+      if (dialogs[dialogs.length - 1] !== panel.current) return
+      if (event.key === 'Escape' && !busyRef.current) {
+        event.preventDefault()
+        closeRef.current()
+      }
+      if (event.key === 'Tab') {
+        const focusable = Array.from(
+          panel.current?.querySelectorAll<HTMLElement>(
+            'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], summary, [tabindex="0"]',
+          ) || [],
+        ).filter((el) => el.getClientRects().length > 0)
+        const first = focusable[0],
+          last = focusable[focusable.length - 1]
+        if (!first) {
+          event.preventDefault()
+          panel.current?.focus()
+          return
+        }
+        if (
+          event.shiftKey &&
+          (document.activeElement === first || document.activeElement === panel.current)
+        ) {
+          event.preventDefault()
+          last.focus()
+        } else if (
+          !event.shiftKey &&
+          (document.activeElement === last || document.activeElement === panel.current)
+        ) {
+          event.preventDefault()
+          first.focus()
+        }
+      }
+    }
+    window.addEventListener('keydown', keydown)
+    return () => {
+      window.removeEventListener('keydown', keydown)
+      if (--openDialogCount === 0) document.body.style.overflow = originalBodyOverflow
+      if (previous?.isConnected) previous.focus()
+    }
+  }, [])
   return (
-    <div className="modal-backdrop" onMouseDown={onClose}>
+    <div
+      className={`modal-backdrop ${variant === 'drawer' ? 'drawer-backdrop' : ''}`}
+      onMouseDown={() => {
+        if (!busy) onClose()
+      }}
+    >
       <section
-        className="modal"
+        ref={panel}
+        tabIndex={-1}
+        className={`modal ${variant === 'drawer' ? 'detail-drawer' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <button className="icon-button modal-close" onClick={onClose} aria-label="Close">
+        <button
+          className="icon-button modal-close"
+          disabled={busy}
+          onClick={onClose}
+          aria-label="Close"
+        >
           <X size={18} />
         </button>
         <h2 id={titleId}>{title}</h2>
@@ -158,9 +243,9 @@ export function useRemote<T>(loader: () => Promise<T>, requestKey = 'default') {
   const requestIdRef = useRef(0)
   loaderRef.current = loader
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
     const requestId = ++requestIdRef.current
-    setLoading(true)
+    if (!silent) setLoading(true)
     setError('')
     try {
       const result = await loaderRef.current()
@@ -181,7 +266,9 @@ export function useRemote<T>(loader: () => Promise<T>, requestKey = 'default') {
     }
   }, [load, requestKey])
 
-  return { data, setData, loading, error, reload: load }
+  const reload = useCallback(() => load(), [load])
+  const refresh = useCallback(() => load(true), [load])
+  return { data, setData, loading, error, reload, refresh }
 }
 
 export function useAsyncAction() {

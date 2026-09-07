@@ -1,5 +1,8 @@
+import { PageStats } from './page-stats'
 import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useTableState } from '../hooks/use-table-state'
+import { Pagination, SortHeader, type PageResult } from '../ui/table'
+import { readableLabel, readableValue } from './audit-format'
 import { ArrowDownRight, ArrowUpRight, ChevronRight } from 'lucide-react'
 import { api, money, shortDate, titleCase } from '../api'
 import {
@@ -15,16 +18,21 @@ import {
 import type { Transaction } from '../types'
 
 export function TransactionsPage() {
-  const [searchParams, setSearchParams] = useSearchParams()
-  const [status, setStatusState] = useState(searchParams.get('status') || '')
-  const setStatus = (value: string) => {
-    setStatusState(value)
-    setSearchParams(value ? { status: value } : {})
-  }
-  const [userId, setUserId] = useState('')
+  const table = useTableState({
+    sort: 'date',
+    direction: 'desc',
+    status: '',
+    user_id: '',
+    network: '',
+    days: '',
+  })
+  const status = table.get('status'),
+    userId = table.get('user_id')
+  const setStatus = (status: string) => table.set({ status })
+  const setUserId = (user_id: string) => table.set({ user_id })
   const [selected, setSelected] = useState<Transaction | null>(null)
-  const path = `/admin/transactions?limit=100${status ? `&status=${status}` : ''}${userId ? `&user_id=${encodeURIComponent(userId)}` : ''}`
-  const { data, loading, error, reload } = useRemote(() => api<Transaction[]>(path), path)
+  const path = `/admin/transactions?${table.paging}${table.get('days') ? `&days=${table.get('days')}` : ''}${table.get('network') ? `&network=${table.get('network')}` : ''}${status ? `&status=${status}` : ''}${userId ? `&user_id=${encodeURIComponent(userId)}` : ''}`
+  const { data, loading, error, reload } = useRemote(() => api<PageResult<Transaction>>(path), path)
   return (
     <>
       <PageHeader
@@ -32,9 +40,40 @@ export function TransactionsPage() {
         title="Transactions"
         description="Trace payment activity, provider references and failure context."
       />
+      {!loading && !error && data && (
+        <PageStats
+          scope="All transactions matching the current filters"
+          items={[
+            { label: 'Payments', value: data.total, hint: 'Matching the selected filters' },
+            {
+              label: 'Completed value',
+              value: money(data.stats.completedValue),
+              hint: 'Successful payments in this view',
+              tone: 'teal',
+            },
+            {
+              label: 'In progress',
+              value: data.stats.inProgress,
+              hint: 'Pending or processing',
+              tone: 'orange',
+            },
+            {
+              label: 'Failed',
+              value: data.stats.failed,
+              hint: 'Payments needing investigation',
+              tone: 'red',
+            },
+          ]}
+        />
+      )}
+
       <div className="toolbar">
         <SearchField value={userId} onChange={setUserId} placeholder="Filter by exact user ID" />
-        <select value={status} onChange={(e) => setStatus(e.target.value)}>
+        <select
+          aria-label="Transaction status"
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+        >
           <option value="">All statuses</option>
           <option value="completed">Completed</option>
           <option value="pending">Pending</option>
@@ -42,12 +81,36 @@ export function TransactionsPage() {
           <option value="failed">Failed</option>
           <option value="reversed">Reversed</option>
         </select>
+        <select
+          aria-label="Payment network"
+          value={table.get('network')}
+          onChange={(e) => table.set({ network: e.target.value })}
+        >
+          <option value="">All networks</option>
+          {['mtn', 'airtel', 'zamtel', 'bank'].map((n) => (
+            <option key={n} value={n}>
+              {titleCase(n)}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label="Payment period"
+          value={table.get('days')}
+          onChange={(e) => table.set({ days: e.target.value })}
+        >
+          <option value="">All time</option>
+          <option value="7">Last 7 UTC days</option>
+          <option value="30">Last 30 UTC days</option>
+        </select>
+        <button className="button secondary" onClick={table.reset}>
+          Reset filters
+        </button>
       </div>
       {loading ? (
         <LoadingState />
       ) : error ? (
         <ErrorState message={error} retry={reload} />
-      ) : !data?.length ? (
+      ) : !data?.items.length ? (
         <EmptyState title="No transactions found" />
       ) : (
         <section className="panel table-panel">
@@ -57,15 +120,15 @@ export function TransactionsPage() {
                 <tr>
                   <th>Reference</th>
                   <th>Direction</th>
-                  <th>Network</th>
-                  <th>Amount</th>
-                  <th>Status</th>
-                  <th>Initiated</th>
+                  <SortHeader label="Network" column="network" state={table} />
+                  <SortHeader label="Amount" column="amount" state={table} numeric />
+                  <SortHeader label="Status" column="status" state={table} />
+                  <SortHeader label="Initiated" column="date" state={table} />
                   <th />
                 </tr>
               </thead>
               <tbody>
-                {data.map((txn) => (
+                {data.items.map((txn) => (
                   <tr key={txn.id}>
                     <td>
                       <div className="stack-cell mono">
@@ -82,7 +145,7 @@ export function TransactionsPage() {
                       </div>
                     </td>
                     <td>{titleCase(txn.network)}</td>
-                    <td>
+                    <td className="numeric">
                       <strong>{money(txn.amountZmw)}</strong>
                       <small className="fee-label">Fee {money(txn.feeZmw)}</small>
                     </td>
@@ -102,8 +165,10 @@ export function TransactionsPage() {
           </div>
         </section>
       )}
+      {data && !error && <Pagination state={table} total={data.total} loading={loading} />}
       {selected && (
         <Modal
+          variant="drawer"
           title="Transaction details"
           description={`Payment ${selected.id}`}
           onClose={() => setSelected(null)}
@@ -180,7 +245,14 @@ export function TransactionsPage() {
             {selected.externalRecipient && (
               <div>
                 <span>External recipient</span>
-                <code>{JSON.stringify(selected.externalRecipient)}</code>
+                <dl className="audit-facts">
+                  {Object.entries(selected.externalRecipient).map(([key, value]) => (
+                    <div key={key}>
+                      <dt>{readableLabel(key)}</dt>
+                      <dd>{readableValue(key, value)}</dd>
+                    </div>
+                  ))}
+                </dl>
               </div>
             )}
             {selected.failureReason && (

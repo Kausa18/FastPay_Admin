@@ -1,12 +1,16 @@
+import { useTableState } from '../hooks/use-table-state'
+import { Pagination } from '../ui/table'
+import { PageStats } from './page-stats'
 import type { FormEvent } from 'react'
 import { useEffect, useState } from 'react'
-import { Check, ChevronRight, Clock3, X } from 'lucide-react'
+import { Check, ChevronRight, X } from 'lucide-react'
 import { api, shortDate, titleCase } from '../api'
 import {
   EmptyState,
   ActionError,
   ErrorState,
   LoadingState,
+  Notice,
   Modal,
   PageHeader,
   StatusPill,
@@ -17,15 +21,33 @@ import type { KycSubmission } from '../types'
 import { DocumentImage } from './shared'
 
 export function KycPage() {
+  const table = useTableState({ sort: 'date', direction: 'asc', age: 'all', size: '10' })
+  const [notice, setNotice] = useState('')
   const [selected, setSelected] = useState<KycSubmission | null>(null)
   const [action, setAction] = useState<'approve' | 'reject' | null>(null)
   const mutation = useAsyncAction()
   const { data, setData, loading, error, reload } = useRemote(() =>
     api<KycSubmission[]>('/kyc/pending'),
   )
+  const queue = (data || [])
+    .filter(
+      (item) =>
+        table.get('age') !== 'overdue' ||
+        Date.now() - new Date(item.submittedAt).getTime() > 86400000,
+    )
+    .sort(
+      (a, b) =>
+        (new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime()) *
+        (table.direction === 'asc' ? 1 : -1),
+    )
+  const visible = queue.slice((table.page - 1) * table.size, table.page * table.size)
+  const selectedIndex = visible.findIndex((item) => item.id === selected?.id)
   useEffect(() => {
-    if (!selected && data?.length) setSelected(data[0])
-  }, [data, selected])
+    if (!visible.some((item) => item.id === selected?.id)) setSelected(visible[0] || null)
+  }, [visible.map((item) => item.id).join(','), selected?.id])
+  useEffect(() => {
+    mutation.clearError()
+  }, [selected?.id, action])
 
   const decide = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -40,7 +62,12 @@ export function KycPage() {
     if (!result) return
     const remaining = (data || []).filter((item) => item.id !== selected.id)
     setData(remaining)
-    setSelected(remaining[0] || null)
+    setNotice(
+      `${selected.fullLegalName}: identity ${action === 'approve' ? 'approved' : 'rejected'}.`,
+    )
+    setSelected(
+      visible[selectedIndex + 1] || visible.find((item) => item.id !== selected.id) || null,
+    )
     setAction(null)
   }
 
@@ -53,23 +80,77 @@ export function KycPage() {
         title="KYC verification"
         description="Review identity evidence carefully and record a clear decision."
         action={
-          <span className="queue-count">
-            <Clock3 size={17} /> {data?.length || 0} awaiting review
-          </span>
+          <button className="button secondary" disabled={mutation.busy} onClick={reload}>
+            Refresh queue
+          </button>
         }
       />
-      {!data?.length ? (
+      <Notice message={notice} onDismiss={() => setNotice('')} />
+      {data && (
+        <PageStats
+          scope="Current identity review queue"
+          items={[
+            {
+              label: 'Awaiting review',
+              value: data.length,
+              hint: 'Identity submissions to process',
+            },
+            {
+              label: 'Waiting over 24h',
+              value: data.filter((k) => Date.now() - new Date(k.submittedAt).getTime() > 86400000)
+                .length,
+              hint: 'Prioritise the oldest submissions',
+              tone: 'orange',
+            },
+            {
+              label: 'Submitted today',
+              value: data.filter(
+                (k) => new Date(k.submittedAt).toDateString() === new Date().toDateString(),
+              ).length,
+              hint: 'Pending submissions received today',
+              tone: 'teal',
+            },
+          ]}
+        />
+      )}
+
+      <div className="toolbar">
+        <select
+          aria-label="Submission order"
+          value={table.direction}
+          disabled={mutation.busy}
+          onChange={(e) => table.set({ direction: e.target.value })}
+        >
+          <option value="asc">Oldest first</option>
+          <option value="desc">Newest first</option>
+        </select>
+        <select
+          aria-label="Submission age"
+          value={table.get('age')}
+          disabled={mutation.busy}
+          onChange={(e) => table.set({ age: e.target.value })}
+        >
+          <option value="all">All pending submissions</option>
+          <option value="overdue">Waiting over 24 hours</option>
+        </select>
+        <button className="button secondary" onClick={table.reset}>
+          Reset filters
+        </button>
+      </div>
+      {!visible.length ? (
         <EmptyState
-          title="KYC queue is clear"
-          message="New identity submissions will appear here for review."
+          title={queue.length ? 'No submissions on this page' : 'No submissions in this queue'}
+          message="Change the age filter or refresh to check for new submissions."
         />
       ) : (
         <section className="review-layout">
           <aside className="review-queue">
             <h3>Review queue</h3>
-            {data.map((item) => (
+            {visible.map((item) => (
               <button
                 key={item.id}
+                disabled={mutation.busy}
+                aria-pressed={selected?.id === item.id}
                 className={selected?.id === item.id ? 'active' : ''}
                 onClick={() => setSelected(item)}
               >
@@ -86,6 +167,25 @@ export function KycPage() {
           </aside>
           {selected && (
             <article className="review-detail">
+              <div className="review-step">
+                <span>
+                  Submission {selectedIndex + 1} of {visible.length} on this page
+                </span>
+                <button
+                  className="button secondary"
+                  disabled={mutation.busy || selectedIndex <= 0}
+                  onClick={() => setSelected(visible[selectedIndex - 1])}
+                >
+                  Previous
+                </button>
+                <button
+                  className="button secondary"
+                  disabled={mutation.busy || selectedIndex >= visible.length - 1}
+                  onClick={() => setSelected(visible[selectedIndex + 1])}
+                >
+                  Next
+                </button>
+              </div>
               <div className="review-title">
                 <div>
                   <p className="eyebrow">Identity submission</p>
@@ -112,7 +212,7 @@ export function KycPage() {
                   <strong>{shortDate(selected.submittedAt)}</strong>
                 </div>
               </div>
-              <div className="document-grid">
+              <div className="document-grid" key={selected.id}>
                 <DocumentImage label="Identity document" value={selected.idDocumentPhoto} />
                 <DocumentImage label="Live selfie" value={selected.selfiePhoto} />
               </div>
@@ -128,8 +228,10 @@ export function KycPage() {
           )}
         </section>
       )}
+      <Pagination state={table} total={queue.length} loading={mutation.busy} />
       {action && selected && (
         <Modal
+          busy={mutation.busy}
           title={action === 'approve' ? 'Approve this identity?' : 'Reject this submission?'}
           description={
             action === 'approve'
@@ -155,7 +257,7 @@ export function KycPage() {
             </label>
             <ActionError message={mutation.error} />
             <div className="modal-actions">
-              <button type="button" className="button secondary" onClick={() => setAction(null)}>
+              <button type="button" disabled={mutation.busy} className="button secondary" onClick={() => setAction(null)}>
                 Cancel
               </button>
               <button
@@ -175,3 +277,4 @@ export function KycPage() {
     </>
   )
 }
+

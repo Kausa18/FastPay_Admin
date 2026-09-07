@@ -74,6 +74,7 @@ export type AuditLog = {
   id: string
   adminEmail: string
   actorType: 'administrator' | 'user'
+  actorUsername?: string
   action: string
   targetType?: string
   targetId?: string
