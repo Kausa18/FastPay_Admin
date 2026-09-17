@@ -16,14 +16,18 @@ import {
   useRemote,
 } from '../components'
 import type { Transaction } from '../types'
+import { useAuth } from '../auth-context'
 
 export function TransactionsPage() {
+  const { admin } = useAuth()
   const table = useTableState({
     sort: 'date',
     direction: 'desc',
     status: '',
     user_id: '',
     network: '',
+    provider: '',
+    environment: '',
     period: '',
   })
   const status = table.get('status'),
@@ -31,8 +35,21 @@ export function TransactionsPage() {
   const setStatus = (status: string) => table.set({ status })
   const setUserId = (user_id: string) => table.set({ user_id })
   const [selected, setSelected] = useState<Transaction | null>(null)
-  const path = `/admin/transactions?${table.paging}${table.get('period') ? `&period=${table.get('period')}` : ''}${table.get('network') ? `&network=${table.get('network')}` : ''}${status ? `&status=${status}` : ''}${userId ? `&user_id=${encodeURIComponent(userId)}` : ''}`
+  const [reconciling, setReconciling] = useState(false)
+  const canReconcile = ['finance', 'operations', 'super_admin'].includes(admin.role)
+  const path = `/admin/transactions?${table.paging}${table.get('period') ? `&period=${table.get('period')}` : ''}${table.get('network') ? `&network=${table.get('network')}` : ''}${table.get('provider') ? `&provider=${table.get('provider')}` : ''}${table.get('environment') ? `&environment=${table.get('environment')}` : ''}${status ? `&status=${status}` : ''}${userId ? `&user_id=${encodeURIComponent(userId)}` : ''}`
   const { data, loading, error, reload } = useRemote(() => api<PageResult<Transaction>>(path), path)
+  const reconcile = async () => {
+    if (!selected) return
+    setReconciling(true)
+    try {
+      const updated = await api<Transaction>(`/admin/transactions/${selected.id}/reconcile`, { method: 'POST' })
+      setSelected(updated)
+      reload()
+    } finally {
+      setReconciling(false)
+    }
+  }
   return (
     <>
       <PageHeader
@@ -40,6 +57,7 @@ export function TransactionsPage() {
         title="Transactions"
         description="Trace payment activity, provider references and failure context."
       />
+      <div className="sandbox-banner">Sandbox transactions move no real funds; recipient payouts are simulated.</div>
       {!loading && !error && data && (
         <PageStats
           scope="All transactions matching the current filters"
@@ -80,6 +98,14 @@ export function TransactionsPage() {
           <option value="processing">Processing</option>
           <option value="failed">Failed</option>
           <option value="reversed">Reversed</option>
+        </select>
+        <select aria-label="Provider" value={table.get('provider')} onChange={(e) => table.set({ provider: e.target.value })}>
+          <option value="">All providers</option>
+          <option value="flutterwave">Flutterwave</option>
+        </select>
+        <select aria-label="Environment" value={table.get('environment')} onChange={(e) => table.set({ environment: e.target.value })}>
+          <option value="">All environments</option>
+          <option value="sandbox">Sandbox</option>
         </select>
         <select
           aria-label="Payment network"
@@ -213,6 +239,22 @@ export function TransactionsPage() {
               <strong>{titleCase(selected.network)}</strong>
             </div>
             <div>
+              <span>Provider / environment</span>
+              <strong>{selected.provider ? `${titleCase(selected.provider)} / ${titleCase(selected.environment || 'unknown')}` : 'Legacy transaction'}</strong>
+            </div>
+            <div>
+              <span>Collection</span>
+              <strong>{titleCase(selected.collectionStatus || 'not reported')} · {selected.collectionReference || 'No reference'}</strong>
+            </div>
+            <div>
+              <span>Simulated payout</span>
+              <strong>{titleCase(selected.payoutStatus || 'not reported')} · {selected.payoutReference || 'No reference'}</strong>
+            </div>
+            <div>
+              <span>Reconciliation</span>
+              <strong>{titleCase(selected.reconciliationStatus || 'not reported')}</strong>
+            </div>
+            <div>
               <span>BrinkPay reference</span>
               <strong>{selected.reference || 'Not assigned'}</strong>
             </div>
@@ -262,6 +304,11 @@ export function TransactionsPage() {
                 <span>Failure reason</span>
                 <strong>{selected.failureReason}</strong>
               </div>
+            )}
+            {canReconcile && selected.provider === 'flutterwave' && selected.collectionReference && (
+              <button className="button secondary" disabled={reconciling} onClick={reconcile}>
+                {reconciling ? 'Reconciling…' : 'Verify with Flutterwave'}
+              </button>
             )}
           </div>
         </Modal>

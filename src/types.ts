@@ -28,7 +28,7 @@ export type Transaction = {
   id: string
   idempotencyKey: string
   senderId: string
-  receiverId: string
+  receiverId: string | null
   type: string
   amountZmw: number
   feeZmw: number
@@ -37,6 +37,14 @@ export type Transaction = {
   status: string
   reference?: string | null
   providerStatus?: string | null
+  provider?: string | null
+  environment?: string | null
+  collectionStatus?: string | null
+  collectionReference?: string | null
+  payoutStatus?: string | null
+  payoutReference?: string | null
+  reconciliationStatus?: string | null
+  lastVerifiedAt?: string | null
   mnoReference?: string | null
   callbackReceivedAt?: string | null
   failureReason?: string | null
