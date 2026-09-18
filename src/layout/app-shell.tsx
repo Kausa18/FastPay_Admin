@@ -1,6 +1,6 @@
 import { Avatar } from '../ui/avatar'
 import { ProfileEditor } from '../pages/profile-editor'
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import {
   Activity,
@@ -18,17 +18,21 @@ import {
 import { AuthContext } from '../auth-context'
 import { api } from '../api'
 import { useIdleLogout } from '../hooks/use-idle-logout'
+import { LoadingState } from '../components'
 import type { AdminRole, AdminUser } from '../types'
-import {
-  AccessPage,
-  AuditPage,
-  DashboardPage,
-  FinancePage,
-  FraudPage,
-  KycPage,
-  TransactionsPage,
-  UsersPage,
-} from '../pages'
+
+// Lazy-loaded per route so an admin only downloads the pages their role can
+// reach, instead of the whole app bundle on every login.
+const DashboardPage = lazy(() => import('../pages/dashboard-page').then((m) => ({ default: m.DashboardPage })))
+const UsersPage = lazy(() => import('../pages/users-page').then((m) => ({ default: m.UsersPage })))
+const KycPage = lazy(() => import('../pages/kyc-page').then((m) => ({ default: m.KycPage })))
+const TransactionsPage = lazy(() =>
+  import('../pages/transactions-page').then((m) => ({ default: m.TransactionsPage })),
+)
+const FraudPage = lazy(() => import('../pages/fraud-page').then((m) => ({ default: m.FraudPage })))
+const FinancePage = lazy(() => import('../pages/finance-page').then((m) => ({ default: m.FinancePage })))
+const AccessPage = lazy(() => import('../pages/access-page').then((m) => ({ default: m.AccessPage })))
+const AuditPage = lazy(() => import('../pages/audit-page').then((m) => ({ default: m.AuditPage })))
 
 const access: Record<string, AdminRole[]> = {
   '/': ['support', 'compliance', 'finance', 'operations', 'super_admin'],
@@ -52,7 +56,7 @@ const navigation = [
   { path: '/audit', label: 'Activity log', icon: FileClock },
 ]
 
-export function AppShell({ admin: initialAdmin, onLogout }: { admin: AdminUser; onLogout: () => Promise<void> }) {
+export function AppShell({ admin: initialAdmin, onLogout }: { admin: AdminUser; onLogout: () => void }) {
   const [admin, setAdmin] = useState(initialAdmin)
   const [profileOpen, setProfileOpen] = useState(false)
   const [profileNotice, setProfileNotice] = useState('')
@@ -71,7 +75,7 @@ export function AppShell({ admin: initialAdmin, onLogout }: { admin: AdminUser; 
   }, [location.pathname, current])
 
   useIdleLogout(() => {
-    void onLogout()
+    onLogout()
   })
 
   return (
@@ -156,17 +160,19 @@ export function AppShell({ admin: initialAdmin, onLogout }: { admin: AdminUser; 
           <main className="page-content">
             {profileNotice && <div className="success-banner" role="status">{profileNotice}<button aria-label="Dismiss profile update" onClick={() => setProfileNotice('')}><X size={16} /></button></div>}
             {profileOpen && <ProfileEditor admin={admin} onClose={() => setProfileOpen(false)} onSaved={updated => { setAdmin(updated); setProfileOpen(false); setProfileNotice('Your profile has been updated.') }} />}
-            <Routes>
-              <Route path="/" element={<DashboardPage />} />
-              <Route path="/users" element={<UsersPage />} />
-              <Route path="/kyc" element={<KycPage />} />
-              <Route path="/transactions" element={<TransactionsPage />} />
-              <Route path="/fraud" element={<FraudPage />} />
-              <Route path="/finance" element={<FinancePage />} />
-              <Route path="/access" element={<AccessPage />} />
-              <Route path="/audit" element={<AuditPage />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
+            <Suspense fallback={<LoadingState />}>
+              <Routes>
+                <Route path="/" element={<DashboardPage />} />
+                <Route path="/users" element={<UsersPage />} />
+                <Route path="/kyc" element={<KycPage />} />
+                <Route path="/transactions" element={<TransactionsPage />} />
+                <Route path="/fraud" element={<FraudPage />} />
+                <Route path="/finance" element={<FinancePage />} />
+                <Route path="/access" element={<AccessPage />} />
+                <Route path="/audit" element={<AuditPage />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </Suspense>
           </main>
         </div>
       </div>

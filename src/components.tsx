@@ -48,15 +48,32 @@ export function SearchField({
   value,
   onChange,
   placeholder = 'Search',
+  debounceMs = 300,
 }: {
   value: string
   onChange: (value: string) => void
   placeholder?: string
+  debounceMs?: number
 }) {
+  const [draft, setDraft] = useState(value)
+  const onChangeRef = useRef(onChange)
+  onChangeRef.current = onChange
+
+  // Keep the field in sync when the value changes from outside (e.g. cleared
+  // by a filter reset) rather than from this component's own debounce.
+  useEffect(() => setDraft(value), [value])
+
+  useEffect(() => {
+    if (draft === value) return
+    const timer = setTimeout(() => onChangeRef.current(draft), debounceMs)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft, debounceMs])
+
   return (
     <label className="search-field">
       <Search size={18} />
-      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
+      <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={placeholder} />
     </label>
   )
 }

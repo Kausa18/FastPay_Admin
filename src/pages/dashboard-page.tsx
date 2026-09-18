@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowUpRight, RefreshCw } from 'lucide-react'
 import { api, browserTimeZone, money, shortDate, subscribeToAdminEvents, titleCase } from '../api'
@@ -69,7 +69,10 @@ function formatBucketLabel(date: string, granularity: Granularity) {
 function PaymentChart({ data }: { data: Trends }) {
   const [metric, setMetric] = useState<'volume' | 'count'>('volume')
   const [selected, setSelected] = useState<string | null>(null)
-  const max = Math.max(1, ...data.series.map((bucket) => bucket[metric]))
+  const max = useMemo(
+    () => Math.max(1, ...data.series.map((bucket) => bucket[metric])),
+    [data.series, metric],
+  )
   const current =
     data.series.find((bucket) => bucket.date === selected) || data.series[data.series.length - 1]
   return (
