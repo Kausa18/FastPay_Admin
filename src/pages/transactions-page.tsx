@@ -16,10 +16,8 @@ import {
   useRemote,
 } from '../components'
 import type { Transaction } from '../types'
-import { useAuth } from '../auth-context'
 
 export function TransactionsPage() {
-  const { admin } = useAuth()
   const table = useTableState({
     sort: 'date',
     direction: 'desc',
@@ -35,21 +33,8 @@ export function TransactionsPage() {
   const setStatus = (status: string) => table.set({ status })
   const setUserId = (user_id: string) => table.set({ user_id })
   const [selected, setSelected] = useState<Transaction | null>(null)
-  const [reconciling, setReconciling] = useState(false)
-  const canReconcile = ['finance', 'operations', 'super_admin'].includes(admin.role)
   const path = `/admin/transactions?${table.paging}${table.get('period') ? `&period=${table.get('period')}` : ''}${table.get('network') ? `&network=${table.get('network')}` : ''}${table.get('provider') ? `&provider=${table.get('provider')}` : ''}${table.get('environment') ? `&environment=${table.get('environment')}` : ''}${status ? `&status=${status}` : ''}${userId ? `&user_id=${encodeURIComponent(userId)}` : ''}`
   const { data, loading, error, reload } = useRemote(() => api<PageResult<Transaction>>(path), path)
-  const reconcile = async () => {
-    if (!selected) return
-    setReconciling(true)
-    try {
-      const updated = await api<Transaction>(`/admin/transactions/${selected.id}/reconcile`, { method: 'POST' })
-      setSelected(updated)
-      reload()
-    } finally {
-      setReconciling(false)
-    }
-  }
   return (
     <>
       <PageHeader
@@ -101,7 +86,8 @@ export function TransactionsPage() {
         </select>
         <select aria-label="Provider" value={table.get('provider')} onChange={(e) => table.set({ provider: e.target.value })}>
           <option value="">All providers</option>
-          <option value="flutterwave">Flutterwave</option>
+          <option value="mtn">MTN</option>
+          <option value="airtel">Airtel</option>
         </select>
         <select aria-label="Environment" value={table.get('environment')} onChange={(e) => table.set({ environment: e.target.value })}>
           <option value="">All environments</option>
@@ -304,11 +290,6 @@ export function TransactionsPage() {
                 <span>Failure reason</span>
                 <strong>{selected.failureReason}</strong>
               </div>
-            )}
-            {canReconcile && selected.provider === 'flutterwave' && selected.collectionReference && (
-              <button className="button secondary" disabled={reconciling} onClick={reconcile}>
-                {reconciling ? 'Reconciling…' : 'Verify with Flutterwave'}
-              </button>
             )}
           </div>
         </Modal>
