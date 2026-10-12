@@ -13,12 +13,14 @@ export function PageHeader({
   action?: ReactNode
 }) {
   return (
-    <div className="page-header">
-      <div>
-        <h1>{title}</h1>
-        <p>{description}</p>
+    <div className="page-header mb-7 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+      <div className="min-w-0">
+        <h1 className="mb-1.5 text-2xl leading-tight font-bold tracking-tight text-brinkpay-navy">
+          {title}
+        </h1>
+        <p className="m-0 max-w-2xl text-sm leading-6 text-brinkpay-muted">{description}</p>
       </div>
-      {action && <div className="page-action">{action}</div>}
+      {action && <div className="page-action shrink-0 max-sm:[&_.button]:w-full">{action}</div>}
     </div>
   )
 }
@@ -37,8 +39,10 @@ export function StatusPill({ value }: { value?: string }) {
         ? 'negative'
         : 'neutral'
   return (
-    <span className={`status-pill ${kind}`}>
-      <span />
+    <span
+      className={`status-pill ${kind} inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-xs leading-5 font-medium whitespace-nowrap capitalize`}
+    >
+      <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
       {status.replaceAll('_', ' ')}
     </span>
   )
@@ -71,9 +75,18 @@ export function SearchField({
   }, [draft, debounceMs])
 
   return (
-    <label className="search-field">
-      <Search size={18} />
-      <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={placeholder} />
+    <label className="search-field relative block w-full min-w-0 sm:max-w-md">
+      <Search
+        size={18}
+        className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-brinkpay-muted"
+        aria-hidden="true"
+      />
+      <input
+        className="pl-11"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        placeholder={placeholder}
+      />
     </label>
   )
 }

@@ -3,6 +3,7 @@ import { Modal } from '../components'
 import { FileCheck2 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { AdminRole } from '../types'
+import { StatCard } from '../ui/stat-card'
 
 export type PlatformOverview = {
   total_transactions: number
@@ -38,18 +39,7 @@ export function MetricCard({
   icon: LucideIcon
   tone?: string
 }) {
-  return (
-    <article className="metric-card">
-      <div className={`metric-icon ${tone}`}>
-        <Icon size={21} />
-      </div>
-      <div className="metric-main">
-        <span>{label}</span>
-        <strong>{value}</strong>
-        <small>{detail}</small>
-      </div>
-    </article>
-  )
+  return <StatCard label={label} value={value} hint={detail} icon={Icon} tone={tone} />
 }
 
 export function DocumentImage({ label, value }: { label: string; value: string }) {

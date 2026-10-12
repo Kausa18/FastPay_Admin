@@ -1,7 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  Wallet as StatWallet,
+  ArrowLeftRight as StatArrowLeftRight,
+  BadgeCheck as StatBadgeCheck,
+} from 'lucide-react'
+import { useCallback, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowUpRight, RefreshCw } from 'lucide-react'
-import { api, browserTimeZone, money, shortDate, subscribeToAdminEvents, titleCase } from '../api'
+import { CircleAlert, RefreshCw, ShieldAlert, Users } from 'lucide-react'
+import { api, browserTimeZone, money, shortDate, titleCase } from '../api'
+import { useAutoRefresh } from '../hooks/use-auto-refresh'
 import {
   EmptyState,
   ErrorState,
@@ -62,7 +68,10 @@ function formatBucketLabel(date: string, granularity: Granularity) {
     })
   }
   return new Intl.DateTimeFormat('en-ZM', {
-    day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
   }).format(new Date(`${date}T00:00:00Z`))
 }
 
@@ -133,7 +142,9 @@ function PaymentChart({ data }: { data: Trends }) {
           </div>
           <div className="chart-dates">
             <span>{formatBucketLabel(data.series[0]?.date, data.granularity)}</span>
-            <span>{formatBucketLabel(data.series[data.series.length - 1]?.date, data.granularity)}</span>
+            <span>
+              {formatBucketLabel(data.series[data.series.length - 1]?.date, data.granularity)}
+            </span>
           </div>
           {current && (
             <p className="chart-detail" aria-live="polite">
@@ -204,20 +215,13 @@ export function DashboardPage() {
   const users = useRemote(() =>
     canUsers ? api<User[]>('/admin/users?limit=6') : Promise.resolve([]),
   )
-  const [live, setLive] = useState(false),
-    [refreshing, setRefreshing] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const refresh = useCallback(async () => {
     setRefreshing(true)
     await Promise.all([counts.refresh(), trends.refresh(), networks.refresh(), users.refresh()])
     setRefreshing(false)
   }, [counts.refresh, trends.refresh, networks.refresh, users.refresh])
-  useEffect(
-    () =>
-      subscribeToAdminEvents(() => {
-        if (!document.hidden) void refresh()
-      }, setLive),
-    [refresh],
-  )
+  useAutoRefresh(refresh)
   return (
     <>
       <PageHeader
@@ -249,10 +253,12 @@ export function DashboardPage() {
         }
       />
       <div className="dashboard-context">
-        <span className={`connection-status ${live ? 'connected' : ''}`}>
-          {live ? 'Automatic updates connected' : 'Automatic updates reconnecting'}
-        </span>
-        {trends.data && <span>Updated {shortDate(trends.data.updatedAt)} · Times shown in {browserTimeZone}</span>}
+        <span className="connection-status connected">Updates automatically every minute</span>
+        {trends.data && (
+          <span>
+            Updated {shortDate(trends.data.updatedAt)} · Times shown in {browserTimeZone}
+          </span>
+        )}
       </div>
       <section className="priority-strip" aria-label="Work requiring attention">
         {counts.loading ? (
@@ -266,7 +272,7 @@ export function DashboardPage() {
                 <span>Identity reviews</span>
                 <strong>{counts.data?.pendingKyc ?? 'Unavailable'}</strong>
                 <small>Awaiting a decision</small>
-                <ArrowUpRight size={18} />
+                <StatBadgeCheck size={18} aria-hidden="true" />
               </Link>
             )}
             {canRisk && (
@@ -274,7 +280,7 @@ export function DashboardPage() {
                 <span>Open risk cases</span>
                 <strong>{counts.data?.openFraudFlags ?? 'Unavailable'}</strong>
                 <small>Review highest risk first</small>
-                <ArrowUpRight size={18} />
+                <ShieldAlert size={18} className="bg-amber-500" aria-hidden="true" />
               </Link>
             )}
             {canUsers && (
@@ -282,17 +288,20 @@ export function DashboardPage() {
                 <span>Platform accounts</span>
                 <strong>{counts.data?.totalUsers ?? 'Unavailable'}</strong>
                 <small>All registered accounts</small>
-                <ArrowUpRight size={18} />
+                <Users size={18} className="bg-brinkpay-blue" aria-hidden="true" />
               </Link>
             )}
           </>
         )}
         {canFinance && !trends.loading && !trends.error && trends.data && (
-          <Link className="priority-item warning" to={`/transactions?status=failed&period=${period}`}>
+          <Link
+            className="priority-item warning"
+            to={`/transactions?status=failed&period=${period}`}
+          >
             <span>Failed payments</span>
             <strong>{trends.data.current.failed}</strong>
             <small>In the {PERIOD_LABEL[period]}</small>
-            <ArrowUpRight size={18} />
+            <CircleAlert size={18} className="bg-red-600" aria-hidden="true" />
           </Link>
         )}
       </section>
@@ -313,16 +322,19 @@ export function DashboardPage() {
                   items={[
                     {
                       label: 'Completed value',
+                      icon: StatWallet,
                       value: money(trends.data.current.volume),
                       hint: compare(trends.data.current.volume, trends.data.previous.volume),
                     },
                     {
                       label: 'Payments initiated',
+                      icon: StatArrowLeftRight,
                       value: trends.data.current.count,
                       hint: compare(trends.data.current.count, trends.data.previous.count),
                     },
                     {
                       label: 'Completion rate',
+                      icon: StatBadgeCheck,
                       value: trends.data.current.count
                         ? `${((trends.data.current.completed / trends.data.current.count) * 100).toFixed(1)}%`
                         : 'No activity',
@@ -331,45 +343,49 @@ export function DashboardPage() {
                     },
                   ]}
                 />
-                <PaymentChart data={trends.data} />
               </>
             )
           )}
-          <section className="panel provider-panel">
-            <div className="section-heading">
-              <h2>Provider performance</h2>
-              <span className="data-note">Data for the {PERIOD_LABEL[period]} (UTC)</span>
-            </div>
-            {networks.loading ? (
-              <LoadingState />
-            ) : networks.error ? (
-              <ErrorState message={networks.error} retry={networks.reload} />
-            ) : (
-              <div className="provider-cards">
-                {networks.data?.networks.map((network) => (
-                  <article key={network.network}>
-                    <div className="section-heading">
-                      <strong>{titleCase(network.network)}</strong>
-                      <span>
-                        {network.success_rate === null
-                          ? 'No activity'
-                          : `${network.success_rate}% completed`}
-                      </span>
-                    </div>
-                    <div className="provider-meter">
-                      <span style={{ width: `${network.success_rate || 0}%` }} />
-                    </div>
-                    <p>
-                      {network.transaction_count} payments · {network.failed_count} failed
-                    </p>
-                    <Link to={`/transactions?network=${network.network}&period=${period}`}>
-                      View payments
-                    </Link>
-                  </article>
-                ))}
+          <div
+            className={`mb-6 grid gap-6 ${trends.data && !trends.error && !trends.loading ? 'xl:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)]' : ''}`}
+          >
+            {!trends.loading && !trends.error && trends.data && <PaymentChart data={trends.data} />}
+            <section className="panel provider-panel">
+              <div className="section-heading">
+                <h2>Provider performance</h2>
+                <span className="data-note">Data for the {PERIOD_LABEL[period]} (UTC)</span>
               </div>
-            )}
-          </section>
+              {networks.loading ? (
+                <LoadingState />
+              ) : networks.error ? (
+                <ErrorState message={networks.error} retry={networks.reload} />
+              ) : (
+                <div className="provider-cards">
+                  {networks.data?.networks.map((network) => (
+                    <article key={network.network}>
+                      <div className="section-heading">
+                        <strong>{titleCase(network.network)}</strong>
+                        <span>
+                          {network.success_rate === null
+                            ? 'No activity'
+                            : `${network.success_rate}% completed`}
+                        </span>
+                      </div>
+                      <div className="provider-meter">
+                        <span style={{ width: `${network.success_rate || 0}%` }} />
+                      </div>
+                      <p>
+                        {network.transaction_count} payments · {network.failed_count} failed
+                      </p>
+                      <Link to={`/transactions?network=${network.network}&period=${period}`}>
+                        View payments
+                      </Link>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
         </>
       )}
       {canUsers && (
@@ -400,8 +416,13 @@ export function DashboardPage() {
                   {users.data.map((user) => (
                     <tr key={user.id}>
                       <td>
-                        <div className="person-cell"><Avatar name={user.fullName} photo={user.profilePhoto} /><div><strong>{user.fullName}</strong>
-                        <small className="fee-label">@{user.username}</small></div></div>
+                        <div className="person-cell">
+                          <Avatar name={user.fullName} photo={user.profilePhoto} />
+                          <div>
+                            <strong>{user.fullName}</strong>
+                            <small className="fee-label">@{user.username}</small>
+                          </div>
+                        </div>
                       </td>
                       <td>{titleCase(user.accountType)}</td>
                       <td>

@@ -1,3 +1,9 @@
+import {
+  ArrowLeftRight as StatArrowLeftRight,
+  Wallet as StatWallet,
+  Clock3 as StatClock3,
+  CircleAlert as StatCircleAlert,
+} from 'lucide-react'
 import { PageStats } from './page-stats'
 import { useState } from 'react'
 import { useTableState } from '../hooks/use-table-state'
@@ -42,26 +48,33 @@ export function TransactionsPage() {
         title="Transactions"
         description="Trace payment activity, provider references and failure context."
       />
-      <div className="sandbox-banner">Sandbox transactions move no real funds; recipient payouts are simulated.</div>
       {!loading && !error && data && (
         <PageStats
           scope="All transactions matching the current filters"
           items={[
-            { label: 'Payments', value: data.total, hint: 'Matching the selected filters' },
+            {
+              label: 'Payments',
+              icon: StatArrowLeftRight,
+              value: data.total,
+              hint: 'Matching the selected filters',
+            },
             {
               label: 'Completed value',
+              icon: StatWallet,
               value: money(data.stats.completedValue),
               hint: 'Successful payments in this view',
               tone: 'teal',
             },
             {
               label: 'In progress',
+              icon: StatClock3,
               value: data.stats.inProgress,
               hint: 'Pending or processing',
               tone: 'orange',
             },
             {
               label: 'Failed',
+              icon: StatCircleAlert,
               value: data.stats.failed,
               hint: 'Payments needing investigation',
               tone: 'red',
@@ -84,12 +97,20 @@ export function TransactionsPage() {
           <option value="failed">Failed</option>
           <option value="reversed">Reversed</option>
         </select>
-        <select aria-label="Provider" value={table.get('provider')} onChange={(e) => table.set({ provider: e.target.value })}>
+        <select
+          aria-label="Provider"
+          value={table.get('provider')}
+          onChange={(e) => table.set({ provider: e.target.value })}
+        >
           <option value="">All providers</option>
           <option value="mtn">MTN</option>
           <option value="airtel">Airtel</option>
         </select>
-        <select aria-label="Environment" value={table.get('environment')} onChange={(e) => table.set({ environment: e.target.value })}>
+        <select
+          aria-label="Environment"
+          value={table.get('environment')}
+          onChange={(e) => table.set({ environment: e.target.value })}
+        >
           <option value="">All environments</option>
           <option value="sandbox">Sandbox</option>
         </select>
@@ -226,15 +247,25 @@ export function TransactionsPage() {
             </div>
             <div>
               <span>Provider / environment</span>
-              <strong>{selected.provider ? `${titleCase(selected.provider)} / ${titleCase(selected.environment || 'unknown')}` : 'Legacy transaction'}</strong>
+              <strong>
+                {selected.provider
+                  ? `${titleCase(selected.provider)} / ${titleCase(selected.environment || 'unknown')}`
+                  : 'Legacy transaction'}
+              </strong>
             </div>
             <div>
               <span>Collection</span>
-              <strong>{titleCase(selected.collectionStatus || 'not reported')} · {selected.collectionReference || 'No reference'}</strong>
+              <strong>
+                {titleCase(selected.collectionStatus || 'not reported')} ·{' '}
+                {selected.collectionReference || 'No reference'}
+              </strong>
             </div>
             <div>
               <span>Simulated payout</span>
-              <strong>{titleCase(selected.payoutStatus || 'not reported')} · {selected.payoutReference || 'No reference'}</strong>
+              <strong>
+                {titleCase(selected.payoutStatus || 'not reported')} ·{' '}
+                {selected.payoutReference || 'No reference'}
+              </strong>
             </div>
             <div>
               <span>Reconciliation</span>
