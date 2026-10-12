@@ -1,7 +1,14 @@
+import {
+  FileClock as StatFileClock,
+  Activity as StatActivity,
+  UserRoundPen as StatUserRoundPen,
+  WalletCards as StatWalletCards,
+} from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ArrowRight, Clock3, RefreshCw, UserRound, ShieldCheck } from 'lucide-react'
 import { api, shortDate } from '../api'
+import { useAutoRefresh } from '../hooks/use-auto-refresh'
 import { auditActions, isRecord, presentAudit, readableLabel, readableValue } from './audit-format'
 import {
   EmptyState,
@@ -142,17 +149,8 @@ export function AuditPage() {
   }, [query])
   const path = `/admin/audit-logs?paginated=true&limit=50&offset=${offset}&q=${encodeURIComponent(search)}${actor ? `&actor_type=${actor}` : ''}${action ? `&action=${action}` : ''}${target ? `&target_id=${encodeURIComponent(target)}` : ''}`
   const { data, loading, error, reload, refresh } = useRemote(() => api<AuditPageData>(path), path)
-  useEffect(() => {
-    const update = () => {
-      if (!document.hidden && offset === 0) void refresh()
-    }
-    const timer = window.setInterval(update, 15000)
-    window.addEventListener('focus', update)
-    return () => {
-      window.clearInterval(timer)
-      window.removeEventListener('focus', update)
-    }
-  }, [refresh, offset])
+  // Only the first page follows new activity; older pages stay put while read.
+  useAutoRefresh(refresh, { enabled: offset === 0 })
   return (
     <>
       <PageHeader
@@ -169,20 +167,28 @@ export function AuditPage() {
         <PageStats
           scope="All events matching your filters"
           items={[
-            { label: 'Events', value: data.total, hint: 'Across the full audit history' },
+            {
+              label: 'Events',
+              icon: StatFileClock,
+              value: data.total,
+              hint: 'Across the full audit history',
+            },
             {
               label: 'User activity',
+              icon: StatActivity,
               value: data.userEvents,
               hint: 'Actions made in the app',
               tone: 'teal',
             },
             {
               label: 'Profile changes',
+              icon: StatUserRoundPen,
               value: data.profileChanges,
               hint: 'Names, usernames and photos',
             },
             {
               label: 'Payment accounts',
+              icon: StatWalletCards,
               value: data.accountChanges,
               hint: 'Linked accounts and payouts',
             },

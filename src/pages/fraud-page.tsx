@@ -1,4 +1,10 @@
-﻿import type { FormEvent } from 'react'
+import {
+  FolderOpen as StatFolderOpen,
+  ShieldAlert as StatShieldAlert,
+  SearchCheck as StatSearchCheck,
+  Users as StatUsers,
+} from 'lucide-react'
+import type { FormEvent } from 'react'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, shortDate, titleCase } from '../api'
@@ -65,21 +71,29 @@ export function FraudPage() {
         <PageStats
           scope="All risk cases matching the current status"
           items={[
-            { label: 'Cases', value: data.total, hint: 'Matching the selected filters' },
+            {
+              label: 'Cases',
+              icon: StatFolderOpen,
+              value: data.total,
+              hint: 'Matching the selected filters',
+            },
             {
               label: 'High risk',
+              icon: StatShieldAlert,
               value: data.stats.highRisk,
               hint: 'Score of 70 or higher',
               tone: 'red',
             },
             {
               label: 'Under review',
+              icon: StatSearchCheck,
               value: data.stats.reviewing,
               hint: 'Investigations in progress',
               tone: 'orange',
             },
             {
               label: 'Accounts affected',
+              icon: StatUsers,
               value: data.stats.accounts,
               hint: 'Distinct accounts in these results',
             },

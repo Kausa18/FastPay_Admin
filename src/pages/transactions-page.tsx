@@ -1,3 +1,9 @@
+import {
+  ArrowLeftRight as StatArrowLeftRight,
+  Wallet as StatWallet,
+  Clock3 as StatClock3,
+  CircleAlert as StatCircleAlert,
+} from 'lucide-react'
 import { PageStats } from './page-stats'
 import { useState } from 'react'
 import { useTableState } from '../hooks/use-table-state'
@@ -24,6 +30,8 @@ export function TransactionsPage() {
     status: '',
     user_id: '',
     network: '',
+    provider: '',
+    environment: '',
     period: '',
   })
   const status = table.get('status'),
@@ -31,7 +39,7 @@ export function TransactionsPage() {
   const setStatus = (status: string) => table.set({ status })
   const setUserId = (user_id: string) => table.set({ user_id })
   const [selected, setSelected] = useState<Transaction | null>(null)
-  const path = `/admin/transactions?${table.paging}${table.get('period') ? `&period=${table.get('period')}` : ''}${table.get('network') ? `&network=${table.get('network')}` : ''}${status ? `&status=${status}` : ''}${userId ? `&user_id=${encodeURIComponent(userId)}` : ''}`
+  const path = `/admin/transactions?${table.paging}${table.get('period') ? `&period=${table.get('period')}` : ''}${table.get('network') ? `&network=${table.get('network')}` : ''}${table.get('provider') ? `&provider=${table.get('provider')}` : ''}${table.get('environment') ? `&environment=${table.get('environment')}` : ''}${status ? `&status=${status}` : ''}${userId ? `&user_id=${encodeURIComponent(userId)}` : ''}`
   const { data, loading, error, reload } = useRemote(() => api<PageResult<Transaction>>(path), path)
   return (
     <>
@@ -44,21 +52,29 @@ export function TransactionsPage() {
         <PageStats
           scope="All transactions matching the current filters"
           items={[
-            { label: 'Payments', value: data.total, hint: 'Matching the selected filters' },
+            {
+              label: 'Payments',
+              icon: StatArrowLeftRight,
+              value: data.total,
+              hint: 'Matching the selected filters',
+            },
             {
               label: 'Completed value',
+              icon: StatWallet,
               value: money(data.stats.completedValue),
               hint: 'Successful payments in this view',
               tone: 'teal',
             },
             {
               label: 'In progress',
+              icon: StatClock3,
               value: data.stats.inProgress,
               hint: 'Pending or processing',
               tone: 'orange',
             },
             {
               label: 'Failed',
+              icon: StatCircleAlert,
               value: data.stats.failed,
               hint: 'Payments needing investigation',
               tone: 'red',
@@ -80,6 +96,23 @@ export function TransactionsPage() {
           <option value="processing">Processing</option>
           <option value="failed">Failed</option>
           <option value="reversed">Reversed</option>
+        </select>
+        <select
+          aria-label="Provider"
+          value={table.get('provider')}
+          onChange={(e) => table.set({ provider: e.target.value })}
+        >
+          <option value="">All providers</option>
+          <option value="mtn">MTN</option>
+          <option value="airtel">Airtel</option>
+        </select>
+        <select
+          aria-label="Environment"
+          value={table.get('environment')}
+          onChange={(e) => table.set({ environment: e.target.value })}
+        >
+          <option value="">All environments</option>
+          <option value="sandbox">Sandbox</option>
         </select>
         <select
           aria-label="Payment network"
@@ -211,6 +244,32 @@ export function TransactionsPage() {
             <div>
               <span>Network</span>
               <strong>{titleCase(selected.network)}</strong>
+            </div>
+            <div>
+              <span>Provider / environment</span>
+              <strong>
+                {selected.provider
+                  ? `${titleCase(selected.provider)} / ${titleCase(selected.environment || 'unknown')}`
+                  : 'Legacy transaction'}
+              </strong>
+            </div>
+            <div>
+              <span>Collection</span>
+              <strong>
+                {titleCase(selected.collectionStatus || 'not reported')} ·{' '}
+                {selected.collectionReference || 'No reference'}
+              </strong>
+            </div>
+            <div>
+              <span>Simulated payout</span>
+              <strong>
+                {titleCase(selected.payoutStatus || 'not reported')} ·{' '}
+                {selected.payoutReference || 'No reference'}
+              </strong>
+            </div>
+            <div>
+              <span>Reconciliation</span>
+              <strong>{titleCase(selected.reconciliationStatus || 'not reported')}</strong>
             </div>
             <div>
               <span>BrinkPay reference</span>

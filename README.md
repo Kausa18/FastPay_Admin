@@ -6,8 +6,11 @@ BrinkPay Python backend.
 
 The interface is built with React, Vite, TypeScript, and Tailwind CSS. BrinkPay
 design tokens are defined with Tailwind's `@theme` configuration in
-`src/styles.css`; shared components use Tailwind utilities and `@apply`, with
-small custom rules retained for branded charts and complex operational layouts.
+`src/styles.css`. The shell, page headings, search fields, status badges, and
+statistic cards use Tailwind utilities. Shared controls and surfaces are defined
+with `@apply` in `src/styles/ui.css`. CSS layers put layout rules before shared
+components and utilities so page styles can override them predictably. Custom
+rules remain for charts, document previews, and operational layouts.
 
 ## Local development
 
@@ -75,4 +78,3 @@ Deploy the matching backend before this admin build. Accounts, transactions and 
 The dashboard compares 7 or 30 UTC calendar days (including the partial current day) with the preceding period. Account drawers show masked linked accounts and recent transactions; recent audit activity remains restricted to super administrators. KYC previews support enlargement and rotation, and risk decisions advance through the queue.
 
 Validation: backend pytest suite (86 passed), audit-format tests (6 passed), production build, and mocked desktop/mobile browser workflow checks. Global search is outside this release.
-

@@ -1,3 +1,9 @@
+import {
+  Users as StatUsers,
+  UserCheck as StatUserCheck,
+  ShieldCheck as StatShieldCheck,
+  UserLock as StatUserLock,
+} from 'lucide-react'
 import { useTableState } from '../hooks/use-table-state'
 import { Pagination, SortHeader } from '../ui/table'
 import { PageStats } from './page-stats'
@@ -100,20 +106,28 @@ export function AccessPage() {
         <PageStats
           scope="Administrator accounts"
           items={[
-            { label: 'Team members', value: data.length, hint: 'All administrator accounts' },
+            {
+              label: 'Team members',
+              icon: StatUsers,
+              value: data.length,
+              hint: 'All administrator accounts',
+            },
             {
               label: 'Active',
+              icon: StatUserCheck,
               value: data.filter((a) => a.status === 'active').length,
               hint: 'Enabled team access',
               tone: 'green',
             },
             {
               label: 'Super admins',
+              icon: StatShieldCheck,
               value: data.filter((a) => a.role === 'super_admin' && a.status === 'active').length,
               hint: 'Active full-access administrators',
             },
             {
               label: 'Disabled',
+              icon: StatUserLock,
               value: data.filter((a) => a.status === 'disabled').length,
               hint: 'Access has been revoked',
             },
@@ -246,7 +260,8 @@ export function AccessPage() {
               <button
                 type="button"
                 className="button secondary"
-                disabled={mutation.busy} onClick={() => setCreateOpen(false)}
+                disabled={mutation.busy}
+                onClick={() => setCreateOpen(false)}
               >
                 Cancel
               </button>
@@ -282,7 +297,12 @@ export function AccessPage() {
             </div>
             <ActionError message={mutation.error} />
             <div className="modal-actions">
-              <button type="button" disabled={mutation.busy} className="button secondary" onClick={() => setSelected(null)}>
+              <button
+                type="button"
+                disabled={mutation.busy}
+                className="button secondary"
+                onClick={() => setSelected(null)}
+              >
                 Cancel
               </button>
               <button className="button primary" disabled={mutation.busy}>
@@ -295,4 +315,3 @@ export function AccessPage() {
     </>
   )
 }
-

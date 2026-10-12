@@ -1,3 +1,9 @@
+import {
+  Users as StatUsers,
+  Store as StatStore,
+  UserCheck as StatUserCheck,
+  UserLock as StatUserLock,
+} from 'lucide-react'
 import { Avatar } from '../ui/avatar'
 import { AccountDrawer } from './account-drawer'
 import { useTableState } from '../hooks/use-table-state'
@@ -68,23 +74,27 @@ export function UsersPage() {
           items={[
             {
               label: 'Accounts',
+              icon: StatUsers,
               value: data.total,
               hint: 'Matching your search and status',
             },
             {
               label: 'Merchants',
+              icon: StatStore,
               value: data.stats.merchants,
               hint: 'Matching business accounts',
               tone: 'teal',
             },
             {
               label: 'Active',
+              icon: StatUserCheck,
               value: data.stats.active,
               hint: 'Accounts with active access',
               tone: 'green',
             },
             {
               label: 'Restricted',
+              icon: StatUserLock,
               value: data.stats.restricted,
               hint: 'Suspended or banned accounts',
               tone: 'orange',
@@ -237,7 +247,12 @@ export function UsersPage() {
             </div>
             <ActionError message={mutation.error} />
             <div className="modal-actions">
-              <button type="button" disabled={mutation.busy} className="button secondary" onClick={() => setSelected(null)}>
+              <button
+                type="button"
+                disabled={mutation.busy}
+                className="button secondary"
+                onClick={() => setSelected(null)}
+              >
                 Cancel
               </button>
               <button className="button primary" disabled={mutation.busy}>
@@ -250,5 +265,3 @@ export function UsersPage() {
     </>
   )
 }
-
-

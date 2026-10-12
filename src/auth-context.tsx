@@ -3,7 +3,7 @@ import type { AdminUser } from './types'
 
 export type AuthContextValue = {
   admin: AdminUser
-  logout: () => Promise<void>
+  logout: () => void
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)

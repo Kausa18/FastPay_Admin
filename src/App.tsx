@@ -21,15 +21,12 @@ export default function App() {
     return () => window.removeEventListener('admin-session-expired', handleExpiredSession)
   }, [])
 
-  const logout = async () => {
-    try {
-      await api('/admin/auth/logout', { method: 'POST' })
-    } catch {
-      // A local logout still succeeds when the API session has already expired.
-    } finally {
-      clearToken()
-      setAdmin(null)
-    }
+  const logout = () => {
+    // Best-effort server-side revocation; clearing local session state must
+    // not wait on it, or a slow/unreachable API stalls the logout button.
+    api('/admin/auth/logout', { method: 'POST' }).catch(() => {})
+    clearToken()
+    setAdmin(null)
   }
 
   if (checking) {

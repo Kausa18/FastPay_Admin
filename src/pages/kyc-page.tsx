@@ -1,3 +1,8 @@
+import {
+  BadgeCheck as StatBadgeCheck,
+  Clock3 as StatClock3,
+  FilePlus2 as StatFilePlus2,
+} from 'lucide-react'
 import { useTableState } from '../hooks/use-table-state'
 import { Pagination } from '../ui/table'
 import { PageStats } from './page-stats'
@@ -92,11 +97,13 @@ export function KycPage() {
           items={[
             {
               label: 'Awaiting review',
+              icon: StatBadgeCheck,
               value: data.length,
               hint: 'Identity submissions to process',
             },
             {
               label: 'Waiting over 24h',
+              icon: StatClock3,
               value: data.filter((k) => Date.now() - new Date(k.submittedAt).getTime() > 86400000)
                 .length,
               hint: 'Prioritise the oldest submissions',
@@ -104,6 +111,7 @@ export function KycPage() {
             },
             {
               label: 'Submitted today',
+              icon: StatFilePlus2,
               value: data.filter(
                 (k) => new Date(k.submittedAt).toDateString() === new Date().toDateString(),
               ).length,
@@ -257,7 +265,12 @@ export function KycPage() {
             </label>
             <ActionError message={mutation.error} />
             <div className="modal-actions">
-              <button type="button" disabled={mutation.busy} className="button secondary" onClick={() => setAction(null)}>
+              <button
+                type="button"
+                disabled={mutation.busy}
+                className="button secondary"
+                onClick={() => setAction(null)}
+              >
                 Cancel
               </button>
               <button
@@ -277,4 +290,3 @@ export function KycPage() {
     </>
   )
 }
-
