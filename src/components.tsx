@@ -271,25 +271,43 @@ export function useRemote<T>(loader: () => Promise<T>, requestKey = 'default') {
   const [error, setError] = useState('')
   const loaderRef = useRef(loader)
   const requestIdRef = useRef(0)
+  const requestKeyRef = useRef(requestKey)
+  const inFlightRef = useRef<{ key: string; id: number; promise: Promise<void> } | null>(null)
   loaderRef.current = loader
+  requestKeyRef.current = requestKey
 
-  const load = useCallback(async (silent = false) => {
+  const load = useCallback((silent = false) => {
+    const existing = inFlightRef.current
+    // Refresh may share a pending read. Reload is also called after mutations,
+    // so it must supersede any read that started before that change.
+    if (silent && existing?.key === requestKeyRef.current && existing.id === requestIdRef.current) {
+      return existing.promise
+    }
     const requestId = ++requestIdRef.current
     if (!silent) setLoading(true)
     setError('')
-    try {
-      const result = await loaderRef.current()
-      if (requestId === requestIdRef.current) setData(result)
-    } catch (reason) {
-      if (requestId === requestIdRef.current) {
-        setError(reason instanceof Error ? reason.message : 'Request failed')
+    const pending = (async () => {
+      try {
+        // Defer invocation so even a synchronous loader failure is settled
+        // after the in-flight reference is registered.
+        const loader = loaderRef.current
+        const result = await Promise.resolve().then(loader)
+        if (requestId === requestIdRef.current) setData(result)
+      } catch (reason) {
+        if (requestId === requestIdRef.current) {
+          setError(reason instanceof Error ? reason.message : 'Request failed')
+        }
+      } finally {
+        if (requestId === requestIdRef.current) setLoading(false)
+        if (inFlightRef.current?.id === requestId) inFlightRef.current = null
       }
-    } finally {
-      if (requestId === requestIdRef.current) setLoading(false)
-    }
+    })()
+    inFlightRef.current = { key: requestKeyRef.current, id: requestId, promise: pending }
+    return pending
   }, [])
 
   useEffect(() => {
+    setData(null)
     void load()
     return () => {
       requestIdRef.current += 1

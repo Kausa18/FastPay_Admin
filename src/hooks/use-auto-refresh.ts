@@ -24,6 +24,9 @@ export function useAutoRefresh(
       lastRun = Date.now()
       try {
         await refreshRef.current()
+      } catch {
+        // The view owns its error state. A failed background load must not
+        // become an unhandled promise rejection in the interval callback.
       } finally {
         running = false
       }

@@ -38,6 +38,23 @@ that belongs in the frontend environment. Never put `ADMIN_JWT_SECRET` or
 For production, add the deployed admin origin to the backend's
 `CORS_ORIGINS`, for example `https://admin.example.com`.
 
+Set `VITE_API_BASE_URL` in the production host before building. Vite embeds it
+in the generated JavaScript; changing it requires a new build. The development
+fallback (`http://localhost:8081`) will target the administrator's computer if
+the production variable is omitted.
+
+Requests have a 30-second deadline, including downloading their response body.
+Sign-in and startup session validation allow up to 90 seconds for an idle API
+to start. Temporary network or server failures retain the saved session and
+show a retry screen; a confirmed HTTP 401 invalidates it. Mutations are never
+automatically retried, because a missing response can follow a successful
+server-side action. Check the current record before repeating a timed-out action.
+
+The KYC queue requests metadata with `includePhotos=false`, then fetches the
+selected submission's evidence from `GET /kyc/{id}`. Deploy the matching backend
+before this admin build. Review decisions stay disabled until that submission's
+evidence request succeeds.
+
 ## Build and deployment
 
 ```powershell

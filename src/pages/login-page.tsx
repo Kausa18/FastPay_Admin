@@ -1,7 +1,7 @@
 import type { FormEvent } from 'react'
 import { useState } from 'react'
 import { BookOpenCheck, ShieldCheck } from 'lucide-react'
-import { api, setToken } from '../api'
+import { api, setToken, STARTUP_TIMEOUT_MS } from '../api'
 import type { AdminUser } from '../types'
 
 export function LoginPage({ onLogin }: { onLogin: (admin: AdminUser) => void }) {
@@ -18,6 +18,7 @@ export function LoginPage({ onLogin }: { onLogin: (admin: AdminUser) => void }) 
     try {
       const result = await api<{ admin: AdminUser; accessToken: string }>('/admin/auth/login', {
         method: 'POST',
+        timeoutMs: STARTUP_TIMEOUT_MS,
         body: JSON.stringify({ email, password }),
       })
       setToken(result.accessToken)
@@ -96,6 +97,9 @@ export function LoginPage({ onLogin }: { onLogin: (admin: AdminUser) => void }) 
               </div>
             </label>
             {error && <div className="inline-error">{error}</div>}
+            {loading && (
+              <p role="status">Connecting. The server may take a minute after inactivity.</p>
+            )}
             <button className="button primary login-button" disabled={loading}>
               {loading ? (
                 <>

@@ -22,17 +22,24 @@ import {
   useAsyncAction,
   useRemote,
 } from '../components'
-import type { KycSubmission } from '../types'
+import type { KycSubmission, KycSummary } from '../types'
 import { DocumentImage } from './shared'
 
 export function KycPage() {
   const table = useTableState({ sort: 'date', direction: 'asc', age: 'all', size: '10' })
   const [notice, setNotice] = useState('')
-  const [selected, setSelected] = useState<KycSubmission | null>(null)
+  const [selected, setSelected] = useState<KycSummary | null>(null)
   const [action, setAction] = useState<'approve' | 'reject' | null>(null)
   const mutation = useAsyncAction()
   const { data, setData, loading, error, reload } = useRemote(() =>
-    api<KycSubmission[]>('/kyc/pending'),
+    api<KycSummary[]>('/kyc/pending?includePhotos=false'),
+  )
+  const details = useRemote(
+    () => (selected ? api<KycSubmission>(`/kyc/${selected.id}`) : Promise.resolve(null)),
+    selected?.id || 'no-selection',
+  )
+  const evidenceReady = Boolean(
+    selected && details.data?.id === selected.id && !details.loading && !details.error,
   )
   const queue = (data || [])
     .filter(
@@ -53,10 +60,11 @@ export function KycPage() {
   useEffect(() => {
     mutation.clearError()
   }, [selected?.id, action])
+  useEffect(() => setAction(null), [selected?.id])
 
   const decide = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (!selected || !action) return
+    if (!selected || !action || !evidenceReady) return
     const note = String(new FormData(event.currentTarget).get('note') || '')
     const result = await mutation.run(() =>
       api<{ kycStatus: string }>(`/kyc/${selected.id}/decision`, {
@@ -220,15 +228,32 @@ export function KycPage() {
                   <strong>{shortDate(selected.submittedAt)}</strong>
                 </div>
               </div>
-              <div className="document-grid" key={selected.id}>
-                <DocumentImage label="Identity document" value={selected.idDocumentPhoto} />
-                <DocumentImage label="Live selfie" value={selected.selfiePhoto} />
-              </div>
+              {details.error ? (
+                <ErrorState message={details.error} retry={details.reload} />
+              ) : !evidenceReady ? (
+                <LoadingState />
+              ) : (
+                <div className="document-grid" key={selected.id}>
+                  <DocumentImage
+                    label="Identity document"
+                    value={details.data?.idDocumentPhoto || ''}
+                  />
+                  <DocumentImage label="Live selfie" value={details.data?.selfiePhoto || ''} />
+                </div>
+              )}
               <div className="review-actions">
-                <button className="button danger-outline" onClick={() => setAction('reject')}>
+                <button
+                  className="button danger-outline"
+                  disabled={!evidenceReady || mutation.busy}
+                  onClick={() => setAction('reject')}
+                >
                   <X size={18} /> Reject submission
                 </button>
-                <button className="button success" onClick={() => setAction('approve')}>
+                <button
+                  className="button success"
+                  disabled={!evidenceReady || mutation.busy}
+                  onClick={() => setAction('approve')}
+                >
                   <Check size={18} /> Approve identity
                 </button>
               </div>
@@ -274,7 +299,7 @@ export function KycPage() {
                 Cancel
               </button>
               <button
-                disabled={mutation.busy}
+                disabled={mutation.busy || !evidenceReady}
                 className={`button ${action === 'approve' ? 'success' : 'danger'}`}
               >
                 {mutation.busy

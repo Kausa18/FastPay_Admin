@@ -218,8 +218,11 @@ export function DashboardPage() {
   const [refreshing, setRefreshing] = useState(false)
   const refresh = useCallback(async () => {
     setRefreshing(true)
-    await Promise.all([counts.refresh(), trends.refresh(), networks.refresh(), users.refresh()])
-    setRefreshing(false)
+    try {
+      await Promise.all([counts.refresh(), trends.refresh(), networks.refresh(), users.refresh()])
+    } finally {
+      setRefreshing(false)
+    }
   }, [counts.refresh, trends.refresh, networks.refresh, users.refresh])
   useAutoRefresh(refresh)
   return (

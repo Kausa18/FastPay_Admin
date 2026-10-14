@@ -69,6 +69,8 @@ export type KycSubmission = {
   submittedAt: string
 }
 
+export type KycSummary = Omit<KycSubmission, 'idDocumentPhoto' | 'selfiePhoto'>
+
 export type FraudFlag = {
   id: string
   userId: string
@@ -92,4 +94,3 @@ export type AuditLog = {
   ipAddress?: string
   createdAt: string
 }
-

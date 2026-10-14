@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { api, getToken, setToken } from '../api'
-import { tokenExpiresAt } from '../session-token'
+import { createSessionRefresher } from '../session-token'
 import { ACTIVITY_EVENTS, IDLE_LIMIT_MS } from './use-idle-logout'
 
 // Refresh once the token is within this window of expiring. It is longer than
@@ -13,22 +13,25 @@ const REFRESH_WINDOW_MS = IDLE_LIMIT_MS + 60 * 1000
 // left to expire and the API caps the total session length.
 export function useSessionRefresh() {
   useEffect(() => {
-    let inFlight = false
-    const maybeRefresh = async () => {
-      const expiresAt = tokenExpiresAt(getToken())
-      if (inFlight || !expiresAt || expiresAt - Date.now() > REFRESH_WINDOW_MS) return
-      inFlight = true
-      try {
+    const refresher = createSessionRefresher({
+      getToken,
+      setToken,
+      refreshWindowMs: REFRESH_WINDOW_MS,
+      exchange: async () => {
         const result = await api<{ accessToken: string }>('/admin/auth/refresh', { method: 'POST' })
-        setToken(result.accessToken)
-      } catch {
-        // A rejected refresh (revoked or time-limited session) already signs
-        // the admin out through the API client's 401 handling.
-      } finally {
-        inFlight = false
-      }
+        return result.accessToken
+      },
+    })
+    const maybeRefresh = () => {
+      if (!document.hidden) void refresher.refresh()
     }
     ACTIVITY_EVENTS.forEach((event) => window.addEventListener(event, maybeRefresh))
-    return () => ACTIVITY_EVENTS.forEach((event) => window.removeEventListener(event, maybeRefresh))
+    document.addEventListener('visibilitychange', maybeRefresh)
+    maybeRefresh()
+    return () => {
+      refresher.cancel()
+      ACTIVITY_EVENTS.forEach((event) => window.removeEventListener(event, maybeRefresh))
+      document.removeEventListener('visibilitychange', maybeRefresh)
+    }
   }, [])
 }
